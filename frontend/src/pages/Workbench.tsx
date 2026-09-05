@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { api, type CaseView } from '../lib/api'
 import { fmtTime, STATUS_META } from '../lib/utils'
+import { useMicRecorder } from '../lib/useMicRecorder'
 import { useApp } from '../store'
 import { Badge, Button, Card, CardBody, CardHeader, CardTitle, Field, Spinner } from '../ui'
 import { PipelineRail } from '../components/PipelineRail'
@@ -87,60 +88,7 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
   const [asrNote, setAsrNote] = useState('')
   const [asrRaw, setAsrRaw] = useState('')
   const [showRaw, setShowRaw] = useState(false)
-  const [rec, setRec] = useState<'idle' | 'recording'>('idle')
-  const [recSec, setRecSec] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
-  const recRef = useRef<{ mr: MediaRecorder; timer: number } | null>(null)
-
-  const stopRec = () => {
-    const r = recRef.current
-    if (!r) return
-    window.clearInterval(r.timer)
-    recRef.current = null
-    setRec('idle')
-    r.mr.stop() // 触发 onstop → 组装音频 → uploadAudio
-  }
-
-  const startRec = async () => {
-    setError('')
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-      setError('此页面无法调用麦克风：浏览器要求 localhost 或 HTTPS 访问（请用 http://127.0.0.1:8000 打开）')
-      return
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mime =
-        ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((t) => MediaRecorder.isTypeSupported(t)) || ''
-      const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined)
-      const chunks: Blob[] = []
-      mr.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data)
-      }
-      mr.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop())
-        const ext = mime.includes('mp4') ? 'm4a' : 'webm'
-        const f = new File(chunks, `mic-${new Date().toISOString().slice(11, 19).replace(/:/g, '')}.${ext}`, {
-          type: mime || 'audio/webm',
-        })
-        uploadAudio(f)
-      }
-      mr.start(500)
-      const timer = window.setInterval(() => {
-        setRecSec((s) => {
-          if (s >= 299) {
-            stopRec()
-            return 0
-          }
-          return s + 1
-        })
-      }, 1000)
-      recRef.current = { mr, timer }
-      setRecSec(0)
-      setRec('recording')
-    } catch (e) {
-      setError('麦克风不可用或权限被拒绝：' + String(e))
-    }
-  }
 
   const submit = async () => {
     if (!text.trim() || busy || rec === 'recording') return
@@ -182,6 +130,8 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
       if (fileRef.current) fileRef.current.value = ''
     }
   }
+
+  const { rec, recSec, micError, start: startRec, stop: stopRec } = useMicRecorder(uploadAudio)
 
   return (
     <section className="p-3.5 border-b border-border">
@@ -268,6 +218,9 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-pulse-dot" />
           正在录音… 再次点击红色按钮结束
         </div>
+      )}
+      {micError && rec !== 'recording' && (
+        <div className="mt-1.5 text-[11px] text-danger">{micError}</div>
       )}
       {asrNote && (
         <div className={'mt-2 text-[11px] flex items-center gap-1.5 ' + (asrBusy ? 'text-primary' : 'text-success')}>
@@ -530,11 +483,12 @@ function RawTextCard({ data, onChanged }: { data: CaseView; onChanged: () => voi
 
         {data.status !== 'completed' && (
           <div className="border-t border-border pt-3">
+            <div className="text-[11px] text-muted font-medium mb-1.5">市民追问 / 回访补充</div>
             <textarea
               value={clarify}
               onChange={(e) => setClarify(e.target.value)}
               rows={2}
-              placeholder="回访补充信息（如：具体是镜湖区中山北路…）"
+              placeholder="回访补充信息（如：具体是镜湖区中山北路…），或点左侧麦克风语音补充"
               className="w-full text-xs rounded-md border border-border bg-surface px-2.5 py-2 resize-none placeholder:text-muted-light focus:outline-none focus:border-primary"
             />
             <div className="flex justify-end mt-1.5">

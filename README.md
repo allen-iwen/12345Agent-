@@ -6,6 +6,16 @@
 
 系统只提供辅助建议，最终工单内容、转派结果和群众回复必须由工作人员审核确认。
 
+## 真实政务热线接入（运营商/呼叫中心对接）
+
+语音入口面向真实部署预留了标准对接层，通话音频到达即自动完成“转写 → 降噪整理 → 五节点建单”，坐席在 Web 工作台直接审核：
+
+- **方式 A · HTTP 回调**：`POST /api/telephony/webhook/call-event`（挂机事件携带录音 URL，支持 http(s) 或政务内网共享盘路径；`X-Telephony-Secret` 鉴权；状态查询 `GET /api/telephony/calls/{call_id}`）
+- **方式 B · 录音目录投递**：呼叫平台投放录音至约定目录，`python scripts/telephony_watcher.py` 常驻轮询自动建单
+- **方式 C · SIP 中继**（规划位）：政府侧已有 PBX（FreeSWITCH）时经 ESL 对接，配置字段已预留
+
+配置见 `backend/.env.example` 的 `TELEPHONY_*` 段；联调步骤、curl 示例与自检清单见 **[docs/telephony.md](docs/telephony.md)**。已用 6 分钟真实来电录音全链路验证（webhook → 讯飞 9 段转写 → 降噪 → 建单待审）。
+
 ## 项目结构
 
 ```text

@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import asr, cases, knowledge, policies, runs
+from app.api.routes import asr, cases, knowledge, policies, runs, telephony
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
@@ -34,6 +34,7 @@ app.include_router(runs.router)
 app.include_router(knowledge.router)
 app.include_router(asr.router)
 app.include_router(policies.router)
+app.include_router(telephony.router)
 
 
 @app.on_event("startup")

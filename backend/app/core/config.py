@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     category_catalog_path: Path = BACKEND_ROOT / "data" / "categories" / "category_catalog.json"
     department_rules_path: Path = BACKEND_ROOT / "data" / "departments" / "department_rules.json"
 
+    # 运营商/呼叫中心对接（真实政务热线接入；详见 docs/telephony.md）
+    telephony_provider: str = "generic"  # generic（回调/目录投递）| sip（FreeSWITCH 规划位）
+    telephony_webhook_secret: str = ""  # 回调鉴权，生产必配；空=放行并告警（联调）
+    telephony_recording_dir: Path = BACKEND_ROOT / "storage" / "telephony_recordings"
+
 
 @lru_cache
 def get_settings() -> Settings:

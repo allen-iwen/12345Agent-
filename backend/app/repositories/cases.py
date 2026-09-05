@@ -40,8 +40,9 @@ def _db() -> sqlite3.Connection:
         settings = get_settings()
         settings.storage_dir.mkdir(parents=True, exist_ok=True)
         path: Path = settings.sqlite_path
-        _conn = sqlite3.connect(str(path), check_same_thread=False)
+        _conn = sqlite3.connect(str(path), check_same_thread=False, timeout=30)
         _conn.row_factory = sqlite3.Row
+        _conn.execute("PRAGMA journal_mode=WAL")  # 读写不互斥，并发场景防 database is locked
         _conn.execute(_SCHEMA)
         _conn.commit()
     return _conn
