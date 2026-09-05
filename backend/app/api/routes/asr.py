@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/asr", tags=["asr"])
 
-ALLOWED = {".mp3", ".wav", ".m4a", ".amr", ".aac", ".ogg", ".flac", ".wma"}
+ALLOWED = {".mp3", ".wav", ".m4a", ".amr", ".aac", ".ogg", ".flac", ".wma", ".webm", ".mp4"}
 
 
 @router.post("")

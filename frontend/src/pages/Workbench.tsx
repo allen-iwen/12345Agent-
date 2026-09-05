@@ -2,8 +2,8 @@
 import { useRef, useState } from 'react'
 import useSWR from 'swr'
 import {
-  AlertTriangle, Check, ChevronRight, Loader2, Mic, PenLine, PhoneCall,
-  PencilLine, Send, ShieldCheck, X,
+  AlertTriangle, AudioLines, Check, ChevronRight, Loader2, PenLine, PhoneCall,
+  PencilLine, Send, ShieldCheck, Square, Upload, X,
 } from 'lucide-react'
 import { api, type CaseView } from '../lib/api'
 import { fmtTime, STATUS_META } from '../lib/utils'
@@ -87,10 +87,63 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
   const [asrNote, setAsrNote] = useState('')
   const [asrRaw, setAsrRaw] = useState('')
   const [showRaw, setShowRaw] = useState(false)
+  const [rec, setRec] = useState<'idle' | 'recording'>('idle')
+  const [recSec, setRecSec] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
+  const recRef = useRef<{ mr: MediaRecorder; timer: number } | null>(null)
+
+  const stopRec = () => {
+    const r = recRef.current
+    if (!r) return
+    window.clearInterval(r.timer)
+    recRef.current = null
+    setRec('idle')
+    r.mr.stop() // 触发 onstop → 组装音频 → uploadAudio
+  }
+
+  const startRec = async () => {
+    setError('')
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      setError('此页面无法调用麦克风：浏览器要求 localhost 或 HTTPS 访问（请用 http://127.0.0.1:8000 打开）')
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mime =
+        ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((t) => MediaRecorder.isTypeSupported(t)) || ''
+      const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined)
+      const chunks: Blob[] = []
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data)
+      }
+      mr.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop())
+        const ext = mime.includes('mp4') ? 'm4a' : 'webm'
+        const f = new File(chunks, `mic-${new Date().toISOString().slice(11, 19).replace(/:/g, '')}.${ext}`, {
+          type: mime || 'audio/webm',
+        })
+        uploadAudio(f)
+      }
+      mr.start(500)
+      const timer = window.setInterval(() => {
+        setRecSec((s) => {
+          if (s >= 299) {
+            stopRec()
+            return 0
+          }
+          return s + 1
+        })
+      }, 1000)
+      recRef.current = { mr, timer }
+      setRecSec(0)
+      setRec('recording')
+    } catch (e) {
+      setError('麦克风不可用或权限被拒绝：' + String(e))
+    }
+  }
 
   const submit = async () => {
-    if (!text.trim() || busy) return
+    if (!text.trim() || busy || rec === 'recording') return
     setBusy(true)
     setError('')
     try {
@@ -150,16 +203,42 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
         <input
           ref={fileRef}
           type="file"
-          accept=".mp3,.wav,.m4a,.amr,.aac,.ogg,.flac,.wma"
+          accept=".mp3,.wav,.m4a,.amr,.aac,.ogg,.flac,.wma,.webm"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0]
             if (f) uploadAudio(f)
           }}
         />
-        <Button size="md" onClick={() => fileRef.current?.click()} disabled={asrBusy || busy} title="上传录音，双引擎转写（讯飞云端优先，本地兜底）并降噪整理">
-          {asrBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
-          录音
+        {rec === 'recording' ? (
+          <Button
+            size="md"
+            onClick={stopRec}
+            className="border-red-300 text-red-600 hover:bg-red-50 shrink-0"
+            title="停止录音并转写"
+          >
+            <Square className="h-3 w-3 fill-current" />
+            {`${Math.floor(recSec / 60)}:${String(recSec % 60).padStart(2, '0')}`}
+          </Button>
+        ) : (
+          <Button
+            size="md"
+            onClick={startRec}
+            disabled={asrBusy || busy}
+            title="网页麦克风现场录音（免上传，停止后自动转写+降噪整理）"
+          >
+            {asrBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <AudioLines className="h-4 w-4" />}
+            现场录音
+          </Button>
+        )}
+        <Button
+          size="md"
+          onClick={() => fileRef.current?.click()}
+          disabled={asrBusy || busy || rec === 'recording'}
+          title="上传录音文件，双引擎转写（讯飞云端优先，本地兜底）并降噪整理"
+        >
+          <Upload className="h-4 w-4" />
+          录音文件
         </Button>
         <select
           value={channel}
@@ -170,11 +249,17 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
             <option key={c}>{c}</option>
           ))}
         </select>
-        <Button variant="primary" size="md" onClick={submit} disabled={busy || !text.trim()} className="shrink-0">
+        <Button variant="primary" size="md" onClick={submit} disabled={busy || !text.trim() || rec === 'recording'} className="shrink-0">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <PenLine className="h-4 w-4" />}
           {busy ? '生成中' : '生成工单'}
         </Button>
       </div>
+      {rec === 'recording' && (
+        <div className="mt-2 text-[11px] flex items-center gap-1.5 text-red-600">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-pulse-dot" />
+          正在录音… 再次点击红色按钮结束
+        </div>
+      )}
       {asrNote && (
         <div className={'mt-2 text-[11px] flex items-center gap-1.5 ' + (asrBusy ? 'text-primary' : 'text-success')}>
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-pulse-dot" />
