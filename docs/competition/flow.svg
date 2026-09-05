@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1150" font-family="'-apple-system','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+<defs>
+<marker id="arr-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/></marker>
+<marker id="arr-gray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#98A1AC"/></marker>
+<marker id="arr-amber" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#B45309"/></marker>
+</defs>
+<rect x="0" y="0" width="1080" height="1150" fill="#ffffff"/>
+<text x="540" y="42" text-anchor="middle" font-size="21" font-weight="700" fill="#1C2430">核心业务闭环 · 从群众来电到人工确认</text>
+<text x="540" y="66" text-anchor="middle" font-size="12" fill="#66707C">虚线 = 支线与提示 · 琥珀菱形 = 判断分支 · 绿框 = 人工必经环节</text>
+<rect x="250.0" y="84.0" width="340" height="52" rx="3" fill="#F6F6F4" stroke="#98A1AC" stroke-width="1"/>
+<text x="420.0" y="106.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1C2430">群众来电 / 网上诉求</text>
+<text x="420.0" y="124.0" text-anchor="middle" font-size="10.5" fill="#66707C">外部输入</text>
+<rect x="250.0" y="168.0" width="340" height="52" rx="3" fill="#ffffff" stroke="#CFCFC9" stroke-width="1"/>
+<text x="420.0" y="190.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1C2430">输入受理</text>
+<text x="420.0" y="208.0" text-anchor="middle" font-size="10.5" fill="#66707C">录音上传 · 现场录音 · 文本 · 运营商回调</text>
+<rect x="250.0" y="252.0" width="340" height="52" rx="3" fill="#ffffff" stroke="#CFCFC9" stroke-width="1"/>
+<text x="420.0" y="274.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1C2430">双引擎转写 → 词典纠错 → LLM 降噪</text>
+<text x="420.0" y="292.0" text-anchor="middle" font-size="10.5" fill="#66707C">原始转写全文留存</text>
+<rect x="250.0" y="336.0" width="340" height="52" rx="3" fill="#ffffff" stroke="#CFCFC9" stroke-width="1"/>
+<text x="420.0" y="358.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1C2430">诉求理解 · 关键要素提取</text>
+<text x="420.0" y="376.0" text-anchor="middle" font-size="10.5" fill="#66707C">时间 / 地点 / 人员 / 事件 / 诉求</text>
+<line x1="420" y1="136" x2="420" y2="168" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arr-blue)"/>
+<line x1="420" y1="220" x2="420" y2="252" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arr-blue)"/>
+<line x1="420" y1="304" x2="420" y2="336" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arr-blue)"/>
+<polygon points="295.0,442 420,413.0 545.0,442 420,471.0" fill="#FBF6EC" stroke="#B45309" stroke-width="1.2"/>
+<text x="420" y="446" text-anchor="middle" font-size="12" font-weight="600" fill="#1C2430">信息缺失 / 存在歧义？</text>
+<line x1="420" y1="388" x2="420" y2="412" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arr-blue)"/>
+<text x="430" y="404" font-size="11" fill="#66707C">否↓</text>
+<rect x="710" y="416" width="300" height="52" rx="3" fill="#F6F6F4" stroke="#CFCFC9" stroke-width="1" stroke-dasharray="5,4"/>
+<text x="860" y="436" text-anchor="middle" font-size="12" font-weight="600" fill="#1C2430">提示坐席补充确认</text>
+<text x="860" y="454" text-anchor="middle" font-size="10.5" fill="#66707C">转人工补录 · 不擅自推断</text>
+<line x1="545" y1="442" x2="708" y2="442" stroke="#B45309" stroke-width="1.5" marker-end="url(#arr-amber)"/>
+<text x="580" y="436" font-size="11" fill="#B45309">是</text>
+<path d="M 860,416 L 860,362 L 594,362" fill="none" stroke="#98A1AC" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#arr-gray)"/>
+<text x="740" y="356" font-size="10.5" fill="#66707C">补录后重跑理解节点</text>
+<line x1="420" y1="471" x2="420" y2="500" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arr-blue)"/>
+<rect x="250.0" y="502.0" width="340" height="52" rx="3" fill="#ffffff" stroke="#CFCFC9" stroke-width="1"/>
+<text x="420.0" y="524.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1C2430">标准化工单生成</text>
+<text x="420.0" y="542.0" text-anchor="middle" font-size="10.5" fill="#66707C">标题 / 摘要 / 关键要素 / 诉求内容</text>
+<rect x="250.0" y="586.0" width="340" height="52" rx="3" fill="#ffffff" stroke="#CFCFC9" stroke-width="1"/>
+<text x="420.0" y="608.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1C2430">事项分类</text>
+<text x="420.0" y="626.0" text-anchor="middle" font-size="10.5" fill="#66707C">12 大类 · 相似历史工单参考 · 置信度</text>
+<rect x="250.0" y="670.0" width="340" height="52" rx="3" fill="#ffffff" stroke="#CFCFC9" stroke-width="1"/>
+<text x="420.0" y="692.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1C2430">承办单位推荐</text>
+<text x="420.0" y="710.0" text-anchor="middle" font-size="10.5" fill="#66707C">主办 / 协办 / 推荐依据</text>
+<line x1="420" y1="554" x2="420" y2="586" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arr-blue)"/>
+<line x1="420" y1="638" x2="420" y2="670" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arr-blue)"/>
+<polygon points="295.0,776 420,747.0 545.0,776 420,805.0" fill="#FBF6EC" stroke="#B45309" stroke-width="1.2"/>
+<text x="420" y="780" text-anchor="middle" font-size="12" font-weight="600" fill="#1C2430">职责交叉 / 信息不足？</text>
+<line x1="420" y1="722" x2="420" y2="746" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arr-blue)"/>
+<text x="430" y="738" font-size="11" fill="#66707C">否↓</text>
+<rect x="710" y="750" width="300" height="52" rx="3" fill="#F6F6F4" stroke="#CFCFC9" stroke-width="1" stroke-dasharray="5,4"/>
+<text x="860" y="770" text-anchor="middle" font-size="12" font-weight="600" fill="#1C2430">标记需人工判断</text>
+<text x="860" y="788" text-anchor="middle" font-size="10.5" fill="#66707C">needs_human_judgment · 附参考建议</text>
+<line x1="545" y1="776" x2="708" y2="776" stroke="#B45309" stroke-width="1.5" marker-end="url(#arr-amber)"/>
+<text x="580" y="770" font-size="11" fill="#B45309">是</text>
+<line x1="420" y1="805" x2="420" y2="834" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arr-blue)"/>
+<rect x="250.0" y="836.0" width="340" height="52" rx="3" fill="#EFF7F1" stroke="#15803D" stroke-width="1"/>
+<text x="420.0" y="858.0" text-anchor="middle" font-size="13" font-weight="600" fill="#15803D">人工审核门 · 分节确认 / 修改</text>
+<text x="420.0" y="876.0" text-anchor="middle" font-size="10.5" fill="#66707C">工单 · 分类 · 转派 · 答复逐节审</text>
+<line x1="420" y1="888" x2="420" y2="917" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arr-blue)"/>
+<rect x="250.0" y="920.0" width="340" height="52" rx="3" fill="#EFF7F1" stroke="#15803D" stroke-width="1"/>
+<text x="420.0" y="942.0" text-anchor="middle" font-size="13" font-weight="600" fill="#15803D">最终放行 · 工单派发</text>
+<text x="420.0" y="960.0" text-anchor="middle" font-size="10.5" fill="#66707C">四节全部审核通过后人工放行</text>
+<line x1="420" y1="972" x2="420" y2="1001" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arr-blue)"/>
+<rect x="250.0" y="1020" width="340" height="52" rx="3" fill="#ffffff" stroke="#CFCFC9" stroke-width="1"/>
+<text x="420.0" y="1042.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1C2430">处理结果录入 → 预回复 / 回访话术</text>
+<text x="420.0" y="1060.0" text-anchor="middle" font-size="10.5" fill="#66707C">人工确认后使用 · 不自动发送</text>
+<line x1="420" y1="1072" x2="420" y2="1092" stroke="#2563eb" stroke-width="1.8" marker-end="url(#arr-blue)"/>
+<rect x="250.0" y="1094" width="340" height="52" rx="3" fill="#F6F6F4" stroke="#E4E4DF" stroke-width="1"/>
+<text x="420.0" y="1116.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1C2430">归档 · 白盒轨迹留存</text>
+<text x="420.0" y="1134.0" text-anchor="middle" font-size="10.5" fill="#66707C">每节点输入输出可审计回放</text>
+<rect x="710" y="1094" width="300" height="52" rx="3" fill="#EEF3FC" stroke="#1D4ED8" stroke-width="1" stroke-dasharray="5,4"/>
+<text x="860" y="1114" text-anchor="middle" font-size="12" font-weight="600" fill="#1D4ED8">未诉先办 · 苗头预警</text>
+<text x="860" y="1132" text-anchor="middle" font-size="10.5" fill="#66707C">同点位同类 7 日 ≥3 件 → 并案 / 主动治理</text>
+<path d="M 594,1120 L 708,1120" fill="none" stroke="#98A1AC" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#arr-gray)"/>
+</svg>
