@@ -123,6 +123,14 @@ class Case(BaseModel):
     completed_at: str = ""
     error: Optional[str] = None
     qc_checks: list[dict] = Field(default_factory=list, description="工单质量检查结果（规则式，只读）")
+    early_warning: Optional[dict] = Field(
+        default=None,
+        description="未诉先办苗头预警：同点位同类诉求短期聚集时非空（只读）",
+    )
+    agent_seconds: Optional[int] = Field(
+        default=None,
+        description="智能体节点累计耗时（秒，来自白盒轨迹，只读）",
+    )
 
 
 # ---------- API ----------

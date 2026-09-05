@@ -58,6 +58,14 @@ export interface CaseView {
   completed_at: string
   error: string | null
   qc_checks: { item: string; passed: boolean; detail: string }[]
+  early_warning: {
+    kind: string
+    message: string
+    related: { case_id: string; title: string; created_at: string; status: string; shared_place?: string }[]
+    window_days: number
+    total: number
+  } | null
+  agent_seconds: number | null
 }
 
 export interface StatsView {
@@ -68,6 +76,13 @@ export interface StatsView {
   demo_urgent: number
   demo_repeat: number
   demo_completed: number
+  efficiency: {
+    human_baseline_min_per_case: number
+    cases_measured: number
+    agent_minutes_total: number
+    human_minutes_estimated: number
+    minutes_saved_est: number
+  }
 }
 
 export interface PolicyDoc {

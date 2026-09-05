@@ -77,6 +77,27 @@ def record_end(run_id: int, output: Any | None, error: str | None = None, durati
         _conn.commit()
 
 
+def sum_case_ms(case_id: str) -> int:
+    """单案智能体节点累计耗时（毫秒）。"""
+    if _conn is None:
+        return 0
+    row = _conn.execute(
+        "SELECT COALESCE(SUM(duration_ms), 0) AS total FROM runs WHERE case_id = ? AND duration_ms IS NOT NULL",
+        (case_id,),
+    ).fetchone()
+    return int(row["total"] or 0) if row else 0
+
+
+def totals() -> dict:
+    """全局效率账本：总节点耗时、案件数（去重）。"""
+    if _conn is None:
+        return {"agent_ms_total": 0, "cases_traced": 0}
+    row = _conn.execute(
+        "SELECT COALESCE(SUM(duration_ms), 0) AS total, COUNT(DISTINCT case_id) AS n FROM runs WHERE duration_ms IS NOT NULL"
+    ).fetchone()
+    return {"agent_ms_total": int(row["total"] or 0), "cases_traced": int(row["n"] or 0)}
+
+
 def list_runs(case_id: str) -> list[dict]:
     if _conn is None:
         return []

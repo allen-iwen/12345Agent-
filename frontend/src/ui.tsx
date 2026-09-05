@@ -20,7 +20,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           size === 'sm' && 'h-7 px-2.5 text-xs',
           size === 'md' && 'h-9 px-3.5 text-sm',
           size === 'lg' && 'h-11 px-6 text-base',
-          variant === 'primary' && 'bg-primary text-white border-transparent hover:bg-primary-dark shadow-sm',
+          variant === 'primary' && 'bg-primary text-white border-transparent hover:bg-primary-dark',
           variant === 'secondary' && 'bg-surface-elevated text-text border-border hover:border-primary hover:text-primary',
           variant === 'ghost' && 'bg-transparent text-muted border-transparent hover:bg-surface-hover hover:text-text',
           variant === 'danger' && 'bg-danger text-white border-transparent hover:opacity-90',
@@ -38,7 +38,7 @@ Button.displayName = 'Button'
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('bg-surface-elevated border border-border rounded-lg shadow-sm', className)}
+      className={cn('bg-surface-elevated border border-border rounded-lg shadow-[0_1px_2px_rgba(28,36,48,0.04)]', className)}
       {...props}
     />
   )
@@ -65,13 +65,13 @@ export function Badge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap',
-        tone === 'neutral' && 'bg-surface-hover text-muted',
-        tone === 'success' && 'bg-success-subtle text-success',
-        tone === 'warning' && 'bg-warning-subtle text-warning',
-        tone === 'danger' && 'bg-danger-subtle text-danger',
-        tone === 'info' && 'bg-info-subtle text-info',
-        tone === 'primary' && 'bg-primary-subtle text-primary-dark',
+        'inline-flex items-center gap-1 rounded-[3px] px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap leading-4',
+        tone === 'neutral' && 'bg-surface-hover text-muted border border-border',
+        tone === 'success' && 'bg-success-subtle text-success border border-success/20',
+        tone === 'warning' && 'bg-warning-subtle text-warning border border-warning/25',
+        tone === 'danger' && 'bg-danger-subtle text-danger border border-danger/25',
+        tone === 'info' && 'bg-info-subtle text-info border border-info/20',
+        tone === 'primary' && 'bg-primary-subtle text-primary-dark border border-primary/20',
         className,
       )}
       {...props}

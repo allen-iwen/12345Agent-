@@ -117,7 +117,7 @@ function PolicyPanel() {
       if (!sourceName) { setBusy(false); return }
       const publisher = (prompt('发布单位', '芜湖市人民政府') || '').trim()
       const r = await api.uploadPolicy(f, sourceName, publisher, '综合')
-      setMsg(`✓ 已入库「${r.source_name}」，切分 ${r.chunks} 块并完成向量索引`)
+      setMsg(`已入库「${r.source_name}」，切分 ${r.chunks} 块并完成向量索引`)
       mutate()
     } catch (e) {
       setErr(String(e))
@@ -195,6 +195,18 @@ function StatsPanel({ stats }: { stats: import('../lib/api').StatsView }) {
         </span>
       </CardHeader>
       <CardBody className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-1">
+        {stats.efficiency && stats.efficiency.cases_measured > 0 && (
+          <div className="col-span-full flex flex-wrap items-center gap-x-4 gap-y-1 mb-2 pb-2 border-b border-border text-xs text-muted">
+            <span className="font-medium text-text-secondary shrink-0">基层减负账本</span>
+            <span>已测 <b className="font-mono text-text-secondary">{stats.efficiency.cases_measured}</b> 件</span>
+            <span>智能体累计 <b className="font-mono text-text-secondary">{stats.efficiency.agent_minutes_total}</b> 分钟</span>
+            <span>人工基准估算 <b className="font-mono text-text-secondary">{stats.efficiency.human_minutes_estimated}</b> 分钟</span>
+            <span className="text-success font-medium">
+              累计约节省 <b className="font-mono">{stats.efficiency.minutes_saved_est}</b> 分钟
+              （≈ {(stats.efficiency.minutes_saved_est / 60).toFixed(1)} 小时）
+            </span>
+          </div>
+        )}
         {Array.from(all).map((cat) => {
           const o = stats.official_by_category[cat] ?? 0
           const d = stats.demo_by_category[cat] ?? 0

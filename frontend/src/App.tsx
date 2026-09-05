@@ -1,7 +1,7 @@
 // 应用外壳：顶栏路由 + 全局布局
 import { useEffect, useState } from 'react'
 import { HashRouter, Link, useLocation } from 'react-router-dom'
-import { Activity, BookOpen, LayoutDashboard } from 'lucide-react'
+import { BookOpen, LayoutDashboard } from 'lucide-react'
 import useSWR from 'swr'
 import { api } from './lib/api'
 import { cn } from './lib/utils'
@@ -41,15 +41,18 @@ function TopBar({ route }: { route: string }) {
   ]
 
   return (
-    <header className="h-12 shrink-0 border-b border-border bg-surface-elevated flex items-center gap-4 px-4">
-      <Link to="/" className="flex items-center gap-2.5 group">
-        <span className="h-7 w-7 rounded-lg bg-primary text-white text-[11px] font-bold flex items-center justify-center shadow-sm">
+    <header className="h-12 shrink-0 border-b border-border bg-surface-elevated flex items-stretch gap-0 px-4">
+      <Link to="/" className="flex items-center gap-2.5 group pr-5">
+        <span className="h-6 px-1.5 rounded-sm bg-primary text-white text-[10px] font-semibold flex items-center justify-center tracking-tight">
           12345
         </span>
-        <span className="text-sm font-semibold group-hover:text-primary transition-colors">热线工单智能体</span>
+        <span className="flex flex-col leading-none">
+          <span className="text-[13px] font-semibold group-hover:text-primary transition-colors">热线工单智能体</span>
+          <span className="text-[10px] text-muted-light mt-1">芜湖 · 政务服务便民热线</span>
+        </span>
       </Link>
 
-      <nav className="flex items-center gap-1 ml-4">
+      <nav className="flex items-stretch -mb-px">
         {tabs.map((t) => {
           const active = t.to === '/' ? !route.startsWith('/knowledge') : route.startsWith(t.to)
           return (
@@ -57,8 +60,10 @@ function TopBar({ route }: { route: string }) {
               key={t.to}
               to={t.to}
               className={cn(
-                'inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] font-medium transition-colors',
-                active ? 'bg-primary-subtle text-primary-dark' : 'text-muted hover:bg-surface-hover hover:text-text',
+                'inline-flex items-center gap-1.5 px-4 text-[13px] font-medium border-b-2 transition-colors',
+                active
+                  ? 'border-primary text-primary-dark'
+                  : 'border-transparent text-muted hover:text-text hover:border-border-strong',
               )}
             >
               <t.icon className="h-3.5 w-3.5" />
@@ -69,8 +74,8 @@ function TopBar({ route }: { route: string }) {
       </nav>
 
       <div className="ml-auto flex items-center gap-2 text-xs text-muted">
-        <Activity className={'h-3.5 w-3.5 ' + (up ? 'text-success' : 'text-danger')} />
-        <span className="font-mono">{up ? 'API 正常' : 'API 离线'}</span>
+        <span className={'h-1.5 w-1.5 rounded-full ' + (up ? 'bg-success' : 'bg-danger animate-pulse-dot')} />
+        <span className="font-mono text-[11px]">{up ? 'SERVICE ONLINE' : 'SERVICE OFFLINE'}</span>
       </div>
     </header>
   )

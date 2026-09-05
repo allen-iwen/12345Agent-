@@ -19,7 +19,7 @@ from app.schemas.models import (
     Understanding,
     WorkOrder,
 )
-from app.services import qc
+from app.services import early_warning, qc, tracing
 from app.workflow.graph import get_graph, run_chain
 from langgraph.types import Command
 
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/cases", tags=["cases"])
 
 
-def _to_case(row: dict) -> Case:
+def _to_case(row: dict, *, enrich: bool = True) -> Case:
     case = Case(
         case_id=row["case_id"],
         raw_text=row["raw_text"],
@@ -50,6 +50,12 @@ def _to_case(row: dict) -> Case:
         case.qc_checks = qc.run_qc(case)
     except Exception:  # noqa: BLE001 - QC 失败不影响案件返回
         logger.warning("qc failed", exc_info=True)
+    if enrich:
+        try:
+            case.agent_seconds = round(tracing.sum_case_ms(case.case_id) / 1000, 1) or None
+            case.early_warning = early_warning.detect(case)
+        except Exception:  # noqa: BLE001
+            logger.warning("enrich failed", exc_info=True)
     return case
 
 
@@ -86,7 +92,7 @@ def create_case(req: CreateCaseRequest) -> Case:
 
 @router.get("", response_model=list[Case])
 def list_cases(limit: int = 50) -> list[Case]:
-    return [_to_case(r) for r in repository.list_cases(limit=limit)]
+    return [_to_case(r, enrich=False) for r in repository.list_cases(limit=limit)]
 
 
 @router.get("/{case_id}", response_model=Case)

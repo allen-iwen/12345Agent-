@@ -99,6 +99,16 @@ def stats() -> dict:
         repeat += 1 if u.get("repeat_request") else 0
         completed += 1 if r.get("status") == "completed" else 0
 
+    # 基层减负账本：智能体实际耗时 vs 人工基准（典型坐席工序估算：
+    # 要素核对与工单规范化 8 分钟 + 分类与承办比对 4 分钟 + 答复草拟 8 分钟）
+    from app.services import tracing
+
+    HUMAN_BASELINE_MIN = 20
+    t = tracing.totals()
+    agent_min_total = round(t["agent_ms_total"] / 60000, 1)
+    measured = t["cases_traced"]
+    human_min_est = round(measured * HUMAN_BASELINE_MIN, 1)
+
     return {
         "official_total": len(orders),
         "official_by_category": official,
@@ -107,4 +117,11 @@ def stats() -> dict:
         "demo_urgent": urgent,
         "demo_repeat": repeat,
         "demo_completed": completed,
+        "efficiency": {
+            "human_baseline_min_per_case": HUMAN_BASELINE_MIN,
+            "cases_measured": measured,
+            "agent_minutes_total": agent_min_total,
+            "human_minutes_estimated": human_min_est,
+            "minutes_saved_est": round(max(0.0, human_min_est - agent_min_total), 1),
+        },
     }

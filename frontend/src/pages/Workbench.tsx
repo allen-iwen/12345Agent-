@@ -2,8 +2,8 @@
 import { useRef, useState } from 'react'
 import useSWR from 'swr'
 import {
-  AlertTriangle, Check, ChevronRight, Flame, Loader2, Mic, PhoneCall,
-  PencilLine, Repeat2, Send, ShieldCheck, Sparkles, X,
+  AlertTriangle, Check, ChevronRight, Loader2, Mic, PenLine, PhoneCall,
+  PencilLine, Send, ShieldCheck, X,
 } from 'lucide-react'
 import { api, type CaseView } from '../lib/api'
 import { fmtTime, STATUS_META } from '../lib/utils'
@@ -111,7 +111,7 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
       setText((prev) => (prev ? prev + '\n' : '') + r.text)
       const engine = r.source === 'xfyun' ? '讯飞云端' : '本地 SenseVoice'
       setAsrNote(
-        `✓ ${engine}转写完成：${r.text.length} 字 / ${r.segments || 1} 段 / ${(r.latency_ms / 1000).toFixed(1)}s，请核对后生成`
+        `转写完成 · ${engine} · ${(r.latency_ms / 1000).toFixed(1)}s / ${r.segments || 1} 段 / ${r.text.length} 字，请核对后生成`
           + (r.fallback_note ? `（${r.fallback_note}，已自动降级）` : '')
       )
     } catch (e) {
@@ -164,8 +164,8 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
           ))}
         </select>
         <Button variant="primary" size="md" onClick={submit} disabled={busy || !text.trim()} className="shrink-0">
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {busy ? '生成中' : '生成'}
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <PenLine className="h-4 w-4" />}
+          {busy ? '生成中' : '生成工单'}
         </Button>
       </div>
       {asrNote && (
@@ -239,14 +239,18 @@ function QueuePanel({
               }
             >
               <div className="flex items-center gap-1.5">
-                {c.understanding?.urgent && <Flame className="h-3 w-3 text-danger shrink-0" />}
-                {c.understanding?.repeat_request && <Repeat2 className="h-3 w-3 text-warning shrink-0" />}
+                {c.understanding?.urgent && (
+                  <span className="h-4 min-w-4 px-0.5 rounded-[2px] bg-danger text-white text-[10px] font-semibold leading-none flex items-center justify-center shrink-0" title="紧急">急</span>
+                )}
+                {c.understanding?.repeat_request && (
+                  <span className="h-4 min-w-4 px-0.5 rounded-[2px] border border-warning/40 text-warning text-[10px] font-semibold leading-none flex items-center justify-center shrink-0" title="重复诉求">重</span>
+                )}
                 <span className="text-[13px] font-medium leading-snug truncate flex-1">
                   {c.work_order?.title ?? c.raw_text.slice(0, 20) + '…'}
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-1.5">
-                <span className={'text-[10px] rounded-full px-1.5 py-px font-medium ' + sm.cls}>{sm.label}</span>
+                <span className={'text-[10px] rounded-[2px] border px-1.5 py-px font-medium ' + sm.cls}>{sm.label}</span>
                 <span className="text-[10px] text-muted-light font-mono ml-auto">{fmtTime(c.created_at)}</span>
               </div>
             </button>
@@ -290,13 +294,13 @@ function CaseDetail({ data, onChanged }: { data: CaseView; onChanged: () => void
             <span>{data.source_channel}</span>
             <span>·</span>
             <span>{fmtTime(data.created_at)}</span>
-            {data.understanding?.urgent && <Badge tone="danger"><Flame className="h-3 w-3" />紧急</Badge>}
-            {data.understanding?.repeat_request && <Badge tone="warning"><Repeat2 className="h-3 w-3" />重复投诉</Badge>}
+            {data.understanding?.urgent && <Badge tone="danger">紧急</Badge>}
+            {data.understanding?.repeat_request && <Badge tone="warning">重复投诉</Badge>}
           </div>
         </div>
         {(() => {
           const sm = STATUS_META[data.status] ?? STATUS_META.processing
-          return <span className={'text-xs rounded-full px-3 py-1 font-semibold shrink-0 ' + sm.cls}>{sm.label}</span>
+          return <span className={'text-xs rounded-sm border px-2.5 py-1 font-semibold shrink-0 ' + sm.cls}>{sm.label}</span>
         })()}
       </header>
 
@@ -304,6 +308,11 @@ function CaseDetail({ data, onChanged }: { data: CaseView; onChanged: () => void
       <Card className="mb-4 py-2">
         <PipelineRail caseData={data} />
       </Card>
+
+      {/* 效率条 */}
+      {data.agent_seconds != null && data.agent_seconds > 0 && (
+        <EfficiencyStrip agentSeconds={data.agent_seconds} />
+      )}
 
       {/* 紧急处置提示 */}
       {data.understanding?.manual_action && (
@@ -315,6 +324,9 @@ function CaseDetail({ data, onChanged }: { data: CaseView; onChanged: () => void
           </div>
         </div>
       )}
+
+      {/* 未诉先办 · 苗头预警 */}
+      {data.early_warning && <EarlyWarningBanner warning={data.early_warning} />}
 
       {/* 工单质量检查 */}
       {data.qc_checks?.length > 0 && <QcPanel checks={data.qc_checks} />}
@@ -754,6 +766,53 @@ function ReplyCard({ data, onChanged }: { data: CaseView; onChanged: () => void 
         <SectionError error={s.error} />
       </CardBody>
     </Card>
+  )
+}
+
+function EarlyWarningBanner({ warning }: { warning: NonNullable<CaseView['early_warning']> }) {
+  return (
+    <Card className="mb-4 border-primary/30 bg-primary-subtle/50">
+      <CardBody className="py-3">
+        <div className="flex items-start gap-2.5">
+          <span className="shrink-0 mt-px rounded-[2px] bg-primary text-white text-[10px] font-semibold px-1.5 py-0.5 leading-4">
+            {warning.kind}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-text-secondary leading-relaxed">{warning.message}</p>
+            {warning.related.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {warning.related.map((r) => (
+                  <span key={r.case_id} className="text-[10px] text-muted bg-surface-elevated border border-border rounded-[2px] px-1.5 py-px" title={`${r.case_id.slice(0, 8)} · ${r.status}${r.shared_place ? ' · 共同地点 ' + r.shared_place : ''}`}>
+                    {r.created_at.slice(5, 10)} {r.title.length > 14 ? r.title.slice(0, 14) + '…' : r.title}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </CardBody>
+    </Card>
+  )
+}
+
+function EfficiencyStrip({ agentSeconds }: { agentSeconds: number }) {
+  const humanMin = 20
+  const saved = Math.max(0, humanMin - agentSeconds / 60)
+  return (
+    <div className="mb-4 flex items-center gap-3 text-[11px] text-muted bg-surface-elevated border border-border rounded-md px-3 py-2">
+      <span className="font-medium text-text-secondary shrink-0">效率</span>
+      <span>
+        智能体五节点累计 <b className="font-mono text-text-secondary">{agentSeconds.toFixed(1)}s</b>
+      </span>
+      <span className="text-border-strong">|</span>
+      <span>
+        人工基准约 <b className="font-mono text-text-secondary">{humanMin}</b> 分钟/件（要素核对 8′ + 分类转派 4′ + 答复草拟 8′，工序估算）
+      </span>
+      <span className="text-border-strong">|</span>
+      <span className="text-success font-medium">
+        本案约节省 <b className="font-mono">{saved.toFixed(1)}</b> 分钟
+      </span>
+    </div>
   )
 }
 

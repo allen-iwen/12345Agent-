@@ -11,11 +11,11 @@ export function fmtTime(iso: string): string {
 }
 
 export const STATUS_META: Record<string, { label: string; cls: string }> = {
-  processing: { label: '生成中', cls: 'bg-info-subtle text-info' },
-  awaiting_review: { label: '待审核', cls: 'bg-warning-subtle text-warning' },
-  needs_clarification: { label: '待补充', cls: 'bg-info-subtle text-info' },
-  completed: { label: '已完成', cls: 'bg-success-subtle text-success' },
-  failed: { label: '失败', cls: 'bg-danger-subtle text-danger' },
+  processing: { label: '生成中', cls: 'bg-info-subtle text-info border-info/20' },
+  awaiting_review: { label: '待审核', cls: 'bg-warning-subtle text-warning border-warning/25' },
+  needs_clarification: { label: '待补充', cls: 'bg-info-subtle text-info border-info/20' },
+  completed: { label: '已完成', cls: 'bg-success-subtle text-success border-success/20' },
+  failed: { label: '失败', cls: 'bg-danger-subtle text-danger border-danger/25' },
 }
 
 export const NODE_META: Record<string, { label: string; short: string }> = {
