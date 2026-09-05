@@ -1,4 +1,5 @@
-"""转写文本降噪整理：把语音听写原文整理为可读通话记录。
+"""
+转写文本降噪整理：把语音听写原文整理为可读通话记录。
 
 真实来电转写里的典型噪声（来自实测语料）：
 1. 彩铃/提示音被误识别成无意义串（"噢b二三四五""c噢b"）；
@@ -7,14 +8,19 @@
 4. 坐席与市民对话混杂、无分段。
 
 处理原则（可审计，防幻觉）：
-- 只做"删噪声、并重复、分段落"，**事实信息（时间/地点/人名/数字/诉求）逐字保留**；
+- 第一步：领域词典确定性纠错（data/asr/domain_lexicon.json，地名/部门/诉求词的
+  同音近音误识别），替换全部记录在案，原始转写不动；
+- 第二步：LLM 只做"删噪声、并重复、分段落"，**事实信息逐字保留**；
 - 整理稿字数不得低于原文的 45%，低于则视为模型过度删改，弃用整理稿回退原文；
 - 原文永远保留并随响应返回（前端可切换），不覆盖证据。
 """
 from __future__ import annotations
 
+import json
 import logging
+from functools import lru_cache
 
+from app.core.config import get_settings
 from app.services.llm import chat_json
 
 logger = logging.getLogger(__name__)
@@ -46,11 +52,41 @@ _USER = """通话时长约 {dur:.0f} 秒。听写原文如下：
 {text}"""
 
 
+@lru_cache
+def _lexicon() -> tuple[tuple[str, str, str], ...]:
+    path = get_settings().data_dir / "asr" / "domain_lexicon.json"
+    if not path.exists():
+        return ()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return tuple((c["wrong"], c["right"], c.get("type", "")) for c in data.get("corrections", []))
+    except Exception:  # noqa: BLE001 - 词典损坏不阻断转写
+        logger.warning("domain_lexicon.json 解析失败，跳过领域纠错", exc_info=True)
+        return ()
+
+
+def apply_domain_lexicon(text: str) -> tuple[str, list[str]]:
+    """确定性领域纠错：返回（纠错后文本, 替换记录列表）。"""
+    changes: list[str] = []
+    for wrong, right, typ in _lexicon():
+        if wrong != right and wrong in text:
+            n = text.count(wrong)
+            text = text.replace(wrong, right)
+            changes.append(f"{typ}纠错：{wrong}→{right}（{n}处）")
+    return text, changes
+
+
 def clean_transcript(text: str, duration_s: float = 0.0) -> dict:
-    """整理转写原文；失败或过度删改时回退原文并说明原因。"""
+    """领域纠错 + LLM 整理；失败或过度删改时回退（纠错结果仍保留）。"""
     text = (text or "").strip()
+    text, lex_changes = apply_domain_lexicon(text)
+    lex_note = f"；领域纠错 {len(lex_changes)} 条" if lex_changes else ""
     if len(text) < MIN_CHARS:
-        return {"clean": text, "changes": [], "speaker_labeled": False, "applied": False, "note": "原文较短，未整理"}
+        return {
+            "clean": text, "changes": lex_changes, "speaker_labeled": False,
+            "applied": len(lex_changes) > 0,
+            "note": ("已纠错" + lex_note + "；原文较短，未做 LLM 整理") if lex_changes else "原文较短，未整理",
+        }
     try:
         data = chat_json(_SYSTEM, _USER.format(dur=duration_s or 0, text=text), temperature=0.1)
     except Exception as exc:  # noqa: BLE001 - 整理失败不影响转写结果
@@ -61,15 +97,15 @@ def clean_transcript(text: str, duration_s: float = 0.0) -> dict:
     if not clean or len(clean) < len(text) * MIN_KEEP_RATIO:
         return {
             "clean": text,
-            "changes": [],
+            "changes": lex_changes,
             "speaker_labeled": False,
-            "applied": False,
-            "note": f"整理稿保留率 {len(clean)}/{len(text)} 低于 {MIN_KEEP_RATIO:.0%}，已回退原文（防过度删改）",
+            "applied": len(lex_changes) > 0,
+            "note": f"整理稿保留率 {len(clean)}/{len(text)} 低于 {MIN_KEEP_RATIO:.0%}，已回退原文（防过度删改；领域纠错{len(lex_changes)}条仍保留）",
         }
     return {
         "clean": clean,
-        "changes": [str(c) for c in (data.get("changes") or [])][:5],
+        "changes": lex_changes + [str(c) for c in (data.get("changes") or [])][:5],
         "speaker_labeled": bool(data.get("speaker_labeled")),
         "applied": True,
-        "note": f"已整理：{len(text)} 字 → {len(clean)} 字（去噪 {(1 - len(clean) / len(text)) * 100:.0f}%）",
+        "note": f"已整理：{len(text)} 字 → {len(clean)} 字（去噪 {(1 - len(clean) / len(text)) * 100:.0f}%{lex_note}）",
     }

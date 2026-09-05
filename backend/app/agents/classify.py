@@ -9,8 +9,11 @@ SYSTEM = """你是芜湖市 12345 政务服务热线的"事项分类"专员。
 把标准化工单归入给定的 12 个一级事项类别之一，或判定无法确定。
 
 分类原则：
-1. 以工单诉求的核心事项为准，而不是地点或主体类型；
-2. 参考相似历史工单的类别，但历史仅作参考，与工单事实冲突时以事实为准；
+1. 先对照分类目录中每类的"定义/典型情形/辨析"判断归属，再参考相似历史工单；
+   类别边界争议时以"辨析"为准（如：培训机构退费归科教文体而非市场监管；
+   宅基地审批归农林水土而非城乡建设；消防设施归公共安全而非城市管理）；
+2. 以工单诉求的核心事项为准，而不是地点或主体类型；
+3. 参考相似历史工单的类别，但历史仅作参考，与工单事实冲突时以事实为准；
 3. confidence：0~1，表示你对 category_code 的把握；
 4. 若文本信息完全不足以归类（如只说"噪声大"但无来源与地点），category_code 填 null，
    并在 reason 中说明缺什么信息、为何无法归类；
@@ -25,9 +28,11 @@ SYSTEM = """你是芜湖市 12345 政务服务热线的"事项分类"专员。
   "needs_human_judgment": boolean, "judgment_note": str}"""
 
 
-def run(work_order: WorkOrder, raw_text: str) -> Classification:
+def run(work_order: WorkOrder, raw_text: str, exclude_source_ids: tuple[str, ...] = ()) -> Classification:
     catalog = retrieval.catalog_brief()
-    similar = retrieval.search_similar(f"{work_order.title} {work_order.event_description}", top_k=3)
+    similar = retrieval.search_similar(
+        f"{work_order.title} {work_order.event_description}", top_k=3, exclude_source_ids=exclude_source_ids
+    )
     if similar:
         sim_lines = []
         for s in similar:

@@ -72,17 +72,19 @@ def _build_index() -> tuple[BM25Okapi | None, list[tuple[str, dict]]]:
     return BM25Okapi(corpus), list(rows)
 
 
-def search_similar(query: str, top_k: int = 3) -> list[SimilarCase]:
+def search_similar(query: str, top_k: int = 3, exclude_source_ids: tuple[str, ...] = ()) -> list[SimilarCase]:
     index, rows = _build_index()
     if index is None:
         return []
     scores = index.get_scores(_tokenize(query) or ["x"])
-    ranked = sorted(range(len(rows)), key=lambda i: scores[i], reverse=True)[:top_k]
+    ranked = sorted(range(len(rows)), key=lambda i: scores[i], reverse=True)
     results: list[SimilarCase] = []
     for i in ranked:
-        if scores[i] <= 0:
-            continue
+        if len(results) >= top_k:
+            break
         r = rows[i][1]
+        if scores[i] <= 0 or r.get("source_id", "") in exclude_source_ids:
+            continue  # 评测留一法：排除测试样本自身，防答案泄漏
         results.append(
             SimilarCase(
                 source_id=r.get("source_id", ""),
@@ -111,5 +113,12 @@ def load_category_catalog() -> list[dict]:
 def catalog_brief() -> str:
     lines = []
     for item in load_category_catalog():
-        lines.append(f"- {item['code']}：{item['name']}")
+        line = f"- {item['code']}：{item['name']}"
+        if item.get("definition"):
+            line += f"｜{item['definition']}"
+        if item.get("typical"):
+            line += "｜典型：" + "、".join(item["typical"][:8])
+        if item.get("contrast"):
+            line += f"｜辨析：{item['contrast']}"
+        lines.append(line)
     return "\n".join(lines)
