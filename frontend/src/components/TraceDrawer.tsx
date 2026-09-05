@@ -1,7 +1,7 @@
 // 轨迹抽屉：白盒展示每个 Agent 节点的输入/输出/耗时（评委可现场点开看）
 import { useEffect } from 'react'
 import useSWR from 'swr'
-import { X, Clock, ArrowDown, ArrowUp, AlertTriangle, FileSearch } from 'lucide-react'
+import { X, Clock, ArrowDown, ArrowUp, AlertTriangle } from 'lucide-react'
 import { api } from '../lib/api'
 import { NODE_META } from '../lib/utils'
 import { useApp } from '../store'
@@ -36,7 +36,6 @@ export function TraceDrawer({ caseId }: { caseId: string }) {
       {/* 抽屉 */}
       <aside className="fixed right-0 top-0 bottom-0 w-[440px] max-w-[90vw] bg-surface-elevated border-l border-border shadow-xl z-50 flex flex-col animate-fade-in">
         <header className="flex items-center gap-2 px-4 h-12 border-b border-border shrink-0">
-          <FileSearch className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold">{meta.label} · 节点轨迹</span>
           <span className="text-[11px] text-muted font-mono ml-auto">{caseId.slice(0, 8)}</span>
           <button onClick={closeTrace} className="p-1 rounded hover:bg-surface-hover text-muted">

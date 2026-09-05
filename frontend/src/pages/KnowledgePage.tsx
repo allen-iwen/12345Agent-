@@ -1,7 +1,7 @@
 // 知识库：官方 18 条历史工单浏览 + 部门职能目录 + 工单流转总览
 import { useRef, useState } from 'react'
 import useSWR from 'swr'
-import { BarChart3, BookOpen, Building2, ChevronRight, FileUp, Library, Loader2, Route, Search, Trash2 } from 'lucide-react'
+import { ChevronRight, FileUp, Loader2, Search, Trash2 } from 'lucide-react'
 import { api, type DepartmentInfo } from '../lib/api'
 import { Badge, Button, Card, CardBody, CardHeader, CardTitle, Spinner } from '../ui'
 
@@ -21,12 +21,9 @@ export function KnowledgePage() {
 
   return (
     <div className="max-w-[1080px] mx-auto p-5">
-      <header className="mb-5">
-        <div className="flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-primary" />
-          <h1 className="text-lg font-semibold">知识库 · 数据、职能与流转</h1>
-        </div>
-        <p className="text-sm text-muted mt-1">
+      <header className="mb-5 pb-3 border-b border-border">
+        <h1 className="text-base font-semibold tracking-tight">知识库 · 数据、职能与流转</h1>
+        <p className="text-xs text-muted mt-1">
           工单流转总览、部门职能目录、政策依据库与 {data?.total ?? '…'} 条官方历史工单——智能体分类、转派、答复的全部数据底料，可现场查验。
         </p>
       </header>
@@ -129,7 +126,6 @@ function FlowPanel() {
   return (
     <Card className="mb-4">
       <CardHeader>
-        <Route className="h-4 w-4 text-primary" />
         <CardTitle>工单流转总览</CardTitle>
         <span className="text-[11px] text-muted ml-auto">从市民来电到办结归档：智能体、坐席、职能部门三方协同</span>
       </CardHeader>
@@ -185,7 +181,6 @@ function DeptPanel() {
   return (
     <Card className="mb-4">
       <CardHeader>
-        <Building2 className="h-4 w-4 text-primary" />
         <CardTitle>部门职能目录</CardTitle>
         <span className="text-[11px] text-muted ml-auto">
           {depts.length} 个承办单位 · 转派节点按此规则判定主办/协办
@@ -301,7 +296,6 @@ function PolicyPanel() {
   return (
     <Card className="mb-4">
       <CardHeader>
-        <Library className="h-4 w-4 text-primary" />
         <CardTitle>政策依据库（RAG）</CardTitle>
         <span className="text-[11px] text-muted ml-auto">8 份精选法规 + 上传文档，语义检索进答复引用</span>
       </CardHeader>
@@ -353,7 +347,6 @@ function StatsPanel({ stats }: { stats: import('../lib/api').StatsView }) {
   return (
     <Card className="mb-4">
       <CardHeader>
-        <BarChart3 className="h-4 w-4 text-primary" />
         <CardTitle>热点问题统计</CardTitle>
         <span className="text-[11px] text-muted ml-auto">
           官方样例 {stats.official_total} 条 · 本系统受理 {stats.demo_total} 件（紧急 {stats.demo_urgent} / 重复 {stats.demo_repeat} / 已归档 {stats.demo_completed}）

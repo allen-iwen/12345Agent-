@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react'
 import useSWR from 'swr'
 import {
-  AlertTriangle, AudioLines, Check, ChevronRight, Loader2, PenLine, PhoneCall,
+  AlertTriangle, AudioLines, Check, ChevronRight, Loader2, PenLine,
   PencilLine, Send, ShieldCheck, Square, Upload, X,
 } from 'lucide-react'
 import { api, type CaseView } from '../lib/api'
@@ -136,8 +136,8 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
   return (
     <section className="p-3.5 border-b border-border">
       <div className="flex items-center gap-1.5 mb-2">
-        <PhoneCall className="h-3.5 w-3.5 text-primary" />
         <span className="text-xs font-semibold text-text-secondary">受理新诉求</span>
+        <span className="text-[10px] text-muted-light">录音 / 文本 · Ctrl+Enter 提交</span>
       </div>
       <textarea
         value={text}
@@ -244,20 +244,21 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
         </div>
       )}
       <div className="flex flex-wrap gap-1 mt-2.5">
+        <span className="text-[10px] text-muted-light self-center mr-0.5">示例</span>
         {DEMO_CASES.map((d) => (
           <button
             key={d.label}
             onClick={() => setText(d.text)}
             title={d.text}
             className={
-              'text-[10px] rounded-full px-2 py-0.5 border transition-colors whitespace-nowrap ' +
+              'text-[11px] rounded-[3px] px-1.5 py-[2px] border transition-colors whitespace-nowrap ' +
               (d.tag === '紧急'
-                ? 'border-danger/40 text-danger hover:bg-danger-subtle'
+                ? 'border-border text-danger hover:border-danger/40'
                 : d.tag === '交叉'
-                  ? 'border-warning/40 text-warning hover:bg-warning-subtle'
+                  ? 'border-border text-warning hover:border-warning/40'
                   : d.tag === '缺信息'
-                    ? 'border-info/40 text-info hover:bg-info-subtle'
-                    : 'border-border text-muted hover:border-primary hover:text-primary')
+                    ? 'border-border text-info hover:border-info/40'
+                    : 'border-border text-muted hover:border-border-strong hover:text-text-secondary')
             }
           >
             {d.label}
@@ -333,16 +334,14 @@ function QueuePanel({
 // ================= 空状态 =================
 function EmptyState() {
   return (
-    <div className="h-full flex flex-col items-center justify-center gap-3 text-center p-8">
-      <div className="h-14 w-14 rounded-2xl bg-primary-subtle flex items-center justify-center">
-        <PhoneCall className="h-7 w-7 text-primary" />
-      </div>
-      <div className="text-base font-semibold">12345 热线工单智能体</div>
-      <div className="text-sm text-muted max-w-md leading-relaxed">
+    <div className="h-full flex flex-col items-center justify-center gap-2.5 text-center p-8">
+      <div className="font-mono text-[28px] font-semibold tracking-tight text-muted-light leading-none">12345</div>
+      <div className="text-sm font-semibold mt-1">热线工单智能体 · 坐席工作台</div>
+      <div className="text-xs text-muted max-w-md leading-relaxed">
         录入群众诉求，智能体依次完成 <b className="text-text-secondary">诉求理解 → 标准化工单 → 事项分类 → 承办单位 → 答复草拟</b>，
         每一步可审核、可修改、可追溯，最终由人工放行。
       </div>
-      <div className="text-xs text-muted-light">AI 结果仅为辅助建议 · 最终以工作人员审核为准</div>
+      <div className="text-[11px] text-muted-light mt-1 border-t border-border pt-2">AI 结果仅为辅助建议 · 最终以工作人员审核为准</div>
     </div>
   )
 }
@@ -441,8 +440,9 @@ function RawTextCard({ data, onChanged }: { data: CaseView; onChanged: () => voi
   return (
     <Card>
       <CardHeader>
-        <PhoneCall className="h-4 w-4 text-primary" />
+        <span className="font-mono text-[11px] text-muted-light tabular-nums">01</span>
         <CardTitle>原始诉求</CardTitle>
+        <span className="text-[10px] text-muted-light ml-auto">通话记录 · 逐字留存</span>
       </CardHeader>
       <CardBody className="space-y-3">
         <p className="text-sm leading-relaxed text-text">{data.raw_text}</p>
@@ -620,7 +620,7 @@ function WorkOrderCard({ data, onChanged }: { data: CaseView; onChanged: () => v
   return (
     <Card>
       <CardHeader>
-        <span className="h-5 w-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">2</span>
+        <span className="font-mono text-[11px] text-muted-light tabular-nums">02</span>
         <CardTitle>标准化工单</CardTitle>
         <ReviewActions
           status={data.review?.work_order ?? 'pending'}
@@ -661,7 +661,7 @@ function ClassificationCard({ data, onChanged }: { data: CaseView; onChanged: ()
   return (
     <Card>
       <CardHeader>
-        <span className="h-5 w-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">3</span>
+        <span className="font-mono text-[11px] text-muted-light tabular-nums">03</span>
         <CardTitle>事项分类</CardTitle>
         <ReviewActions
           status={data.review?.classification ?? 'pending'}
@@ -742,7 +742,7 @@ function RoutingCard({ data, onChanged }: { data: CaseView; onChanged: () => voi
   return (
     <Card>
       <CardHeader>
-        <span className="h-5 w-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">4</span>
+        <span className="font-mono text-[11px] text-muted-light tabular-nums">04</span>
         <CardTitle>承办单位</CardTitle>
         <ReviewActions
           status={data.review?.routing ?? 'pending'}
@@ -809,7 +809,7 @@ function ReplyCard({ data, onChanged }: { data: CaseView; onChanged: () => void 
   return (
     <Card>
       <CardHeader>
-        <span className="h-5 w-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">5</span>
+        <span className="font-mono text-[11px] text-muted-light tabular-nums">05</span>
         <CardTitle>答复草拟</CardTitle>
         <ReviewActions
           status={data.review?.reply ?? 'pending'}
@@ -906,7 +906,6 @@ function QcPanel({ checks }: { checks: { item: string; passed: boolean; detail: 
   return (
     <Card className="mb-4">
       <CardHeader>
-        <ShieldCheck className={'h-4 w-4 ' + (failed.length === 0 ? 'text-success' : 'text-warning')} />
         <CardTitle>工单质量检查</CardTitle>
         <span className={'text-[11px] ml-auto font-medium ' + (failed.length === 0 ? 'text-success' : 'text-warning')}>
           {failed.length === 0 ? `${checks.length} 项全部通过` : `${checks.length - failed.length}/${checks.length} 通过`}
@@ -986,10 +985,10 @@ function ReviewBar({ data, onChanged }: { data: CaseView; onChanged: () => void 
               <span
                 key={s}
                 className={
-                  'text-[11px] rounded-full px-2 py-0.5 font-medium ' +
-                  (st === 'pending' ? 'bg-surface-hover text-muted'
-                    : st === 'approved' ? 'bg-success-subtle text-success'
-                    : 'bg-info-subtle text-info')
+                  'text-[11px] rounded-[3px] px-1.5 py-0.5 border font-medium ' +
+                  (st === 'pending' ? 'bg-surface text-muted border-border'
+                    : st === 'approved' ? 'bg-success-subtle text-success border-success/20'
+                    : 'bg-info-subtle text-info border-info/20')
                 }
               >
                 {labels[s]}

@@ -21,7 +21,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           size === 'md' && 'h-9 px-3.5 text-sm',
           size === 'lg' && 'h-11 px-6 text-base',
           variant === 'primary' && 'bg-primary text-white border-transparent hover:bg-primary-dark',
-          variant === 'secondary' && 'bg-surface-elevated text-text border-border hover:border-primary hover:text-primary',
+          variant === 'secondary' && 'bg-surface-elevated text-text-secondary border-border hover:border-border-strong hover:text-text',
           variant === 'ghost' && 'bg-transparent text-muted border-transparent hover:bg-surface-hover hover:text-text',
           variant === 'danger' && 'bg-danger text-white border-transparent hover:opacity-90',
           variant === 'success' && 'bg-success text-white border-transparent hover:opacity-90',
@@ -37,10 +37,7 @@ Button.displayName = 'Button'
 // ---------- Card ----------
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div
-      className={cn('bg-surface-elevated border border-border rounded-lg shadow-[0_1px_2px_rgba(28,36,48,0.04)]', className)}
-      {...props}
-    />
+    <div className={cn('bg-surface-elevated border border-border rounded-md', className)} {...props} />
   )
 }
 

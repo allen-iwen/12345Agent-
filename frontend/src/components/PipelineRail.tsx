@@ -75,12 +75,11 @@ export function PipelineRail({ caseData, compact = false }: { caseData: CaseView
                 />
                 <span
                   className={cn(
-                    'relative flex items-center justify-center rounded-full border-2 transition-all',
-                    compact ? 'h-6 w-6' : 'h-8 w-8',
+                    'relative flex items-center justify-center rounded-full border-2 transition-colors',
+                    compact ? 'h-6 w-6' : 'h-7 w-7',
                     v.ring,
                     v.fill,
                     st === 'running' && 'animate-pulse-dot',
-                    'group-hover:scale-110 transition-transform',
                   )}
                 >
                   {st === 'running' && <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />}
