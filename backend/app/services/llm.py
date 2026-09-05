@@ -24,22 +24,60 @@ def get_client() -> OpenAI:
     return _client
 
 
+def _repair_json_literals(content: str) -> str:
+    """宽松修复：把 JSON 字符串值内的裸换行/制表符转义（模型常犯，多行长文本尤甚）。"""
+    out: list[str] = []
+    in_str = False
+    esc = False
+    for ch in content:
+        if in_str:
+            if esc:
+                esc = False
+                out.append(ch)
+            elif ch == "\\":
+                esc = True
+                out.append(ch)
+            elif ch == '"':
+                in_str = False
+                out.append(ch)
+            elif ch == "\n":
+                out.append("\\n")
+            elif ch == "\t":
+                out.append("\\t")
+            elif ch == "\r":
+                pass
+            else:
+                out.append(ch)
+        else:
+            if ch == '"':
+                in_str = True
+            out.append(ch)
+    return "".join(out)
+
+
 def _extract_json(content: str) -> Any:
     """从模型输出中稳健地提取 JSON 对象。"""
     content = content.strip()
     if content.startswith("```"):
         content = re.sub(r"^```[a-zA-Z]*\s*", "", content)
         content = re.sub(r"\s*```$", "", content)
-    try:
-        return json.loads(content)
-    except json.JSONDecodeError:
-        pass
+
+    def _try(s: str) -> Any | None:
+        for cand in (s, _repair_json_literals(s)):
+            try:
+                return json.loads(cand)
+            except json.JSONDecodeError:
+                continue
+        return None
+
+    data = _try(content)
+    if data is not None:
+        return data
     match = re.search(r"\{.*\}", content, re.DOTALL)
     if match:
-        try:
-            return json.loads(match.group(0))
-        except json.JSONDecodeError:
-            pass
+        data = _try(match.group(0))
+        if data is not None:
+            return data
     raise ValueError(f"模型输出无法解析为 JSON：{content[:300]}")
 
 

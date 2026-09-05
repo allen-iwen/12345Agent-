@@ -89,12 +89,16 @@ def main() -> int:
     hits = get(f"/api/knowledge/search?text={q}&top_k=3")["hits"]
     check("BM25 检索命中市场监管", hits and hits[0]["category"] == "市场监管", hits[0]["title"][:20] if hits else "无")
 
-    section("2 录音输入（讯飞云端 · 真实 6 分钟来电）")
+    section("2 录音输入（讯飞云端 · 真实 6 分钟来电 · 降噪整理）")
     t0 = time.time()
     a = upload_file(r"data\raw\official_work_orders\交通运输\260715111208005.mp3", "/api/asr")
     dt = time.time() - t0
     check("云端引擎生效", a["source"] == "xfyun", f"{a['source']} {a['latency_ms']/1000:.1f}s")
     check("转写非空且成段", len(a["text"]) > 500, f"{len(a['text'])} 字 / {a['segments']} 段 / 端到端 {dt:.0f}s")
+    check("降噪整理生效", a.get("clean_applied") is True and len(a.get("text_clean") or "") > 100,
+          (a.get("clean_note") or "")[:60])
+    check("彩铃误识别已剔除", "噢b" not in (a.get("text_clean") or ""), (a.get("clean_changes") or [])[:2].__str__())
+    check("原文保留作证据", len(a.get("text") or "") > len(a.get("text_clean") or ""))
 
     section("3 紧急件全生命周期（燃气泄漏）")
     c = call("POST", "/api/cases", {
@@ -154,7 +158,15 @@ def main() -> int:
         check("预警含同源清单", len(w["related"]) >= 2, f"{len(w['related'])} 件 / 共 {w['total']}")
         check("预警为交通类聚集", "交通" in json.dumps(w, ensure_ascii=False) or True)
 
-    section("6 政策 RAG（上传 → 检索 → 删除）")
+    section("6 政策 RAG（法规全文库 → 上传 → 检索 → 删除）")
+    lst = get("/api/policies")["documents"]
+    lib_names = {d["source_name"] for d in lst}
+    need = {"信访工作条例", "中华人民共和国噪声污染防治法", "城镇燃气管理条例", "保障农民工工资支付条例"}
+    check("国家法规全文已入库", need.issubset(lib_names), f"{len(lib_names)} 份")
+    q3 = urllib.parse.quote("施工单位拖欠农民工工资应该哪个部门管")
+    sh3 = get(f"/api/policies/search?q={q3}")["hits"]
+    check("全文库语义检索命中", any("农民工" in h["source_name"] for h in sh3), sh3[0]["source_name"][:26] if sh3 else "无")
+
     p = upload_file(
         r"data\policies\sample_wuhu_zhandao.txt", "/api/policies",
         {"source_name": "芜湖市占道经营专项整治测试文件", "publisher": "芜湖市城市管理局", "category_name": "城市管理"},

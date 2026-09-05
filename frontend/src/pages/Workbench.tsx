@@ -85,6 +85,8 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
   const [error, setError] = useState('')
   const [asrBusy, setAsrBusy] = useState(false)
   const [asrNote, setAsrNote] = useState('')
+  const [asrRaw, setAsrRaw] = useState('')
+  const [showRaw, setShowRaw] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const submit = async () => {
@@ -104,14 +106,19 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
 
   const uploadAudio = async (f: File) => {
     setAsrBusy(true)
-    setAsrNote(`云端转写 ${f.name} 中…`)
+    setAsrNote(`云端转写并整理 ${f.name} 中…`)
     setError('')
     try {
       const r = await api.transcribeAudio(f)
-      setText((prev) => (prev ? prev + '\n' : '') + r.text)
+      const fill = r.clean_applied && r.text_clean ? r.text_clean : r.text
+      setText((prev) => (prev ? prev + '\n' : '') + fill)
+      setAsrRaw(r.text)
+      setShowRaw(false)
       const engine = r.source === 'xfyun' ? '讯飞云端' : '本地 SenseVoice'
+      const dn = r.clean_applied ? ` · 降噪整理：${(r.clean_changes || []).slice(0, 2).join('、')}` : ''
       setAsrNote(
-        `转写完成 · ${engine} · ${(r.latency_ms / 1000).toFixed(1)}s / ${r.segments || 1} 段 / ${r.text.length} 字，请核对后生成`
+        `转写完成 · ${engine} · ${(r.latency_ms / 1000).toFixed(1)}s / ${r.segments || 1} 段 / ${r.text.length} 字`
+          + (r.clean_note ? ` · ${r.clean_note}` : '') + dn
           + (r.fallback_note ? `（${r.fallback_note}，已自动降级）` : '')
       )
     } catch (e) {
@@ -172,6 +179,21 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
         <div className={'mt-2 text-[11px] flex items-center gap-1.5 ' + (asrBusy ? 'text-primary' : 'text-success')}>
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-pulse-dot" />
           {asrNote}
+        </div>
+      )}
+      {asrRaw && !asrBusy && (
+        <div className="mt-1.5">
+          <button
+            onClick={() => setShowRaw((v) => !v)}
+            className="text-[11px] text-muted hover:text-primary underline underline-offset-2 decoration-border-strong"
+          >
+            {showRaw ? '收起原始转写（未整理，作证据留存）' : '查看原始转写（未整理，作证据留存）'}
+          </button>
+          {showRaw && (
+            <pre className="mt-1.5 max-h-40 overflow-auto text-[11px] leading-relaxed text-muted whitespace-pre-wrap bg-surface border border-border rounded-md p-2.5">
+              {asrRaw}
+            </pre>
+          )}
         </div>
       )}
       <div className="flex flex-wrap gap-1 mt-2.5">

@@ -1,0 +1,66 @@
+[
+ {
+  "name": "信访工作条例",
+  "ok": true,
+  "chars": 9674,
+  "url": "https://www.gjxfj.gov.cn/2022-04/08/c_1310549186.htm",
+  "file": "信访工作条例.txt",
+  "category": "综合政务"
+ },
+ {
+  "name": "中华人民共和国噪声污染防治法",
+  "ok": true,
+  "chars": 12673,
+  "url": "https://www.mee.gov.cn/ywgz/fgbz/fl/202112/t20211225_965275.shtml",
+  "file": "中华人民共和国噪声污染防治法.txt",
+  "category": "生态环境"
+ },
+ {
+  "name": "物业管理条例",
+  "ok": true,
+  "chars": 7581,
+  "url": "https://www.gov.cn/zwgk/2005-05/23/content_154.htm",
+  "file": "物业管理条例.txt",
+  "category": "城乡建设"
+ },
+ {
+  "name": "保障农民工工资支付条例",
+  "ok": true,
+  "chars": 8836,
+  "url": "https://www.gov.cn/zhengce/content/2020-01/07/content_5467278.htm",
+  "file": "保障农民工工资支付条例.txt",
+  "category": "人力资源社保"
+ },
+ {
+  "name": "中华人民共和国消费者权益保护法",
+  "ok": true,
+  "chars": 8187,
+  "url": "https://www.samr.gov.cn/zfjcj/tzgg/art/2023/art_615af9ed6bcd4974bf853dd2e02bc663.html",
+  "file": "中华人民共和国消费者权益保护法.txt",
+  "category": "市场监管"
+ },
+ {
+  "name": "中华人民共和国道路交通安全法",
+  "ok": true,
+  "chars": 16361,
+  "url": "https://jtgl.beijing.gov.cn/jgj/jgxx/flfg/fl/205308/index.html",
+  "file": "中华人民共和国道路交通安全法.txt",
+  "category": "交通运输"
+ },
+ {
+  "name": "城镇燃气管理条例",
+  "ok": true,
+  "chars": 7955,
+  "url": "https://www.gov.cn/zwgk/2010-11/25/content_1753480.htm",
+  "file": "城镇燃气管理条例.txt",
+  "category": "公共安全"
+ },
+ {
+  "name": "中华人民共和国大气污染防治法",
+  "ok": true,
+  "chars": 19189,
+  "url": "https://www.mee.gov.cn/ywgz/fgbz/fl/201811/t20181113_673567.shtml",
+  "file": "中华人民共和国大气污染防治法.txt",
+  "category": "生态环境"
+ }
+]

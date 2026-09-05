@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
 
-from app.services import asr, xf_asr
+from app.services import asr, transcript_clean, xf_asr
 
 logger = logging.getLogger(__name__)
 
@@ -36,12 +36,14 @@ async def transcribe_audio(file: UploadFile = File(...)) -> dict:
         latency_ms = 0
         seg_count = 0
         fallback_error = ""
+        duration_s = 0.0
         if xf_asr.configured():
             t0 = time.monotonic()
             try:
                 out = xf_asr.transcribe(tmp_path)
                 text, source = out["text"], "xfyun"
                 seg_count = out.get("segments", 1)
+                duration_s = float(out.get("duration_s") or 0)
                 latency_ms = int((time.monotonic() - t0) * 1000)
                 logger.info("xf_asr ok file=%s segs=%d chars=%d %dms", file.filename, seg_count, len(text), latency_ms)
             except Exception as exc:  # noqa: BLE001 - 云端失败降级本地
@@ -52,9 +54,16 @@ async def transcribe_audio(file: UploadFile = File(...)) -> dict:
             result = asr.transcribe(tmp_path)
             text, source = result["text"], "sensevoice"
             latency_ms = int((time.monotonic() - t0) * 1000)
+
+        # 降噪整理：删彩铃误识别/填充词/口吃，事实逐字保留；失败自动回退原文
+        cleaned = transcript_clean.clean_transcript(text, duration_s)
         return {
             "filename": file.filename,
             "text": text,
+            "text_clean": cleaned["clean"],
+            "clean_applied": cleaned["applied"],
+            "clean_note": cleaned["note"],
+            "clean_changes": cleaned["changes"],
             "source": source,
             "latency_ms": latency_ms,
             "segments": seg_count,

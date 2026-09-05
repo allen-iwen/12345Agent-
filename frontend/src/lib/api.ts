@@ -185,6 +185,10 @@ export const api = {
     return (await res.json()) as {
       filename: string
       text: string
+      text_clean: string
+      clean_applied: boolean
+      clean_note: string
+      clean_changes: string[]
       source: 'xfyun' | 'sensevoice'
       latency_ms: number
       segments: number
