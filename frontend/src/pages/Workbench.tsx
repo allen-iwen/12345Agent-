@@ -199,7 +199,7 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
         rows={3}
         className="w-full text-sm rounded-md border border-border bg-surface px-2.5 py-2 resize-y placeholder:text-muted-light focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
       />
-      <div className="flex gap-2 mt-2">
+      <div className="flex gap-1.5 mt-2">
         <input
           ref={fileRef}
           type="file"
@@ -212,48 +212,57 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
         />
         {rec === 'recording' ? (
           <Button
-            size="md"
+            size="sm"
             onClick={stopRec}
             className="border-red-300 text-red-600 hover:bg-red-50 shrink-0"
             title="停止录音并转写"
           >
-            <Square className="h-3 w-3 fill-current" />
-            {`${Math.floor(recSec / 60)}:${String(recSec % 60).padStart(2, '0')}`}
+            <Square className="h-2.5 w-2.5 fill-current" />
+            <span className="font-mono">{`${Math.floor(recSec / 60)}:${String(recSec % 60).padStart(2, '0')}`}</span>
           </Button>
         ) : (
           <Button
-            size="md"
+            size="sm"
             onClick={startRec}
             disabled={asrBusy || busy}
+            className="shrink-0"
             title="网页麦克风现场录音（免上传，停止后自动转写+降噪整理）"
           >
-            {asrBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <AudioLines className="h-4 w-4" />}
+            {asrBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <AudioLines className="h-3.5 w-3.5" />}
             现场录音
           </Button>
         )}
         <Button
-          size="md"
+          size="sm"
           onClick={() => fileRef.current?.click()}
           disabled={asrBusy || busy || rec === 'recording'}
+          className="shrink-0"
           title="上传录音文件，双引擎转写（讯飞云端优先，本地兜底）并降噪整理"
         >
-          <Upload className="h-4 w-4" />
+          <Upload className="h-3.5 w-3.5" />
           录音文件
         </Button>
         <select
           value={channel}
           onChange={(e) => setChannel(e.target.value)}
-          className="text-xs rounded-md border border-border bg-surface px-2 h-9 flex-1 min-w-0 focus:outline-none focus:border-primary"
+          className="ml-auto text-xs rounded-md border border-border bg-surface px-2 h-7 min-w-0 max-w-[10rem] focus:outline-none focus:border-primary"
+          title="来电源"
         >
           {CHANNELS.map((c) => (
             <option key={c}>{c}</option>
           ))}
         </select>
-        <Button variant="primary" size="md" onClick={submit} disabled={busy || !text.trim() || rec === 'recording'} className="shrink-0">
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <PenLine className="h-4 w-4" />}
-          {busy ? '生成中' : '生成工单'}
-        </Button>
       </div>
+      <Button
+        variant="primary"
+        size="md"
+        onClick={submit}
+        disabled={busy || !text.trim() || rec === 'recording'}
+        className="w-full mt-1.5 justify-center"
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <PenLine className="h-4 w-4" />}
+        {busy ? '生成中…（约 1 分钟，五个节点依次执行）' : '生成工单'}
+      </Button>
       {rec === 'recording' && (
         <div className="mt-2 text-[11px] flex items-center gap-1.5 text-red-600">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-pulse-dot" />
@@ -767,6 +776,15 @@ function ClassificationCard({ data, onChanged }: { data: CaseView; onChanged: ()
 function RoutingCard({ data, onChanged }: { data: CaseView; onChanged: () => void }) {
   const s = useSection(data, onChanged)
   const rt = data.routing
+  const { data: depts } = useSWR(['departments'], () => api.listDepartments())
+  const duty = (() => {
+    const p = rt?.primary
+    if (!p || !depts?.departments) return ''
+    const hit = depts.departments.find(
+      (d) => d.name === p || d.name.includes(p) || p.includes(d.name.split('（')[0]),
+    )
+    return hit?.responsibilities ?? ''
+  })()
   return (
     <Card>
       <CardHeader>
@@ -814,6 +832,12 @@ function RoutingCard({ data, onChanged }: { data: CaseView; onChanged: () => voi
                 </div>
               </div>
             ))}
+            {duty && (
+              <div className="text-[11px] text-muted bg-surface border-l-2 border-primary/30 rounded-r-md px-2.5 py-1.5 leading-relaxed">
+                <span className="font-medium text-text-secondary">主办职责：</span>
+                {duty}
+              </div>
+            )}
             {rt.note && <div className="text-xs text-muted border-t border-border pt-2">{rt.note}</div>}
           </div>
         )}

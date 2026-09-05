@@ -50,6 +50,33 @@ def list_categories() -> dict:
     return json.loads(cat_path.read_text(encoding="utf-8"))
 
 
+@router.get("/departments")
+def list_departments() -> dict:
+    """部门职能目录：按承办单位聚合职责规则（分类→主办/协办/职责/关键词）。"""
+    settings = get_settings()
+    path = settings.data_dir / "departments" / "department_rules.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="department_rules.json 不存在")
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    by_dept: dict[str, dict] = {}
+    for r in raw.get("rules", []):
+        dept = r.get("department", "")
+        entry = by_dept.setdefault(
+            dept,
+            {"name": dept, "categories": [], "co_departments": [], "keywords": [], "responsibilities": ""},
+        )
+        entry["categories"].append(r.get("category_name", ""))
+        for co in r.get("co_departments", []) or []:
+            if co not in entry["co_departments"]:
+                entry["co_departments"].append(co)
+        for kw in r.get("keywords", []) or []:
+            if kw not in entry["keywords"]:
+                entry["keywords"].append(kw)
+        if not entry["responsibilities"]:
+            entry["responsibilities"] = r.get("responsibilities", "")
+    return {"notice": raw.get("notice", ""), "departments": sorted(by_dept.values(), key=lambda d: d["name"])}
+
+
 @router.get("/search")
 def search_similar(text: str, top_k: int = 3) -> dict:
     """BM25 相似工单检索——工作台'一键复用'数据源。"""

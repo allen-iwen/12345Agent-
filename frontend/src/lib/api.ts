@@ -95,6 +95,14 @@ export interface PolicyDoc {
   indexed_at: string
 }
 
+export interface DepartmentInfo {
+  name: string
+  categories: string[]
+  co_departments: string[]
+  keywords: string[]
+  responsibilities: string
+}
+
 export interface RunRecord {
   id: number
   node: string
@@ -207,6 +215,9 @@ export const api = {
     return req<{ query: string; hits: SimilarHit[] }>(`/api/knowledge/search?${p}`)
   },
   stats: () => req<StatsView>('/api/knowledge/stats'),
+  // 部门职能目录
+  listDepartments: () =>
+    req<{ notice: string; departments: DepartmentInfo[] }>('/api/knowledge/departments'),
   // 政策库
   listPolicies: () => req<{ documents: PolicyDoc[] }>('/api/policies'),
   uploadPolicy: async (file: File, sourceName: string, publisher: string, categoryName: string) => {

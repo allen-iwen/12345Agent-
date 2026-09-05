@@ -1,8 +1,8 @@
-// 知识库：官方 18 条历史工单浏览（BM25 检索的底料，评委可查验数据来源）
+// 知识库：官方 18 条历史工单浏览 + 部门职能目录 + 工单流转总览
 import { useRef, useState } from 'react'
 import useSWR from 'swr'
-import { BarChart3, BookOpen, FileUp, Library, Loader2, Search, Trash2 } from 'lucide-react'
-import { api } from '../lib/api'
+import { BarChart3, BookOpen, Building2, ChevronRight, FileUp, Library, Loader2, Route, Search, Trash2 } from 'lucide-react'
+import { api, type DepartmentInfo } from '../lib/api'
 import { Badge, Button, Card, CardBody, CardHeader, CardTitle, Spinner } from '../ui'
 
 export function KnowledgePage() {
@@ -24,10 +24,10 @@ export function KnowledgePage() {
       <header className="mb-5">
         <div className="flex items-center gap-2">
           <BookOpen className="h-5 w-5 text-primary" />
-          <h1 className="text-lg font-semibold">知识库 · 官方历史工单</h1>
+          <h1 className="text-lg font-semibold">知识库 · 数据、职能与流转</h1>
         </div>
         <p className="text-sm text-muted mt-1">
-          赛题数据集清洗后的 {data?.total ?? '…'} 条标准化工单——智能体分类、转派、答复的检索底料。
+          工单流转总览、部门职能目录、政策依据库与 {data?.total ?? '…'} 条官方历史工单——智能体分类、转派、答复的全部数据底料，可现场查验。
         </p>
       </header>
 
@@ -64,6 +64,12 @@ export function KnowledgePage() {
       {/* 热点统计 */}
       {stats && <StatsPanel stats={stats} />}
 
+      {/* 工单流转总览 */}
+      <FlowPanel />
+
+      {/* 部门职能目录 */}
+      <DeptPanel />
+
       {/* 政策依据库 */}
       <PolicyPanel />
 
@@ -98,6 +104,165 @@ export function KnowledgePage() {
           <div className="text-sm text-muted text-center py-10">无匹配记录</div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ---------- 工单流转总览 ----------
+const FLOW_STEPS: { title: string; sub: string; tag?: 'agent' | 'human' | 'dept' }[] = [
+  { title: '市民来电', sub: '电话 / 录音 / 文本' },
+  { title: '智能受理', sub: '理解→工单→分类→转派→答复', tag: 'agent' },
+  { title: '坐席审核', sub: '四节确认 / 修改 / 补充重跑', tag: 'human' },
+  { title: '派单主办', sub: '主办单位 + 协办单位', tag: 'dept' },
+  { title: '部门办理', sub: '限时办结 · 进度反馈', tag: 'dept' },
+  { title: '答复回访', sub: '统一答复 / 满意度回访', tag: 'human' },
+  { title: '归档沉淀', sub: '知识库 / 苗头预警分析', tag: 'agent' },
+]
+
+const TAG_META = {
+  agent: { label: '智能体', cls: 'bg-primary-subtle text-primary border-primary/30' },
+  human: { label: '人工', cls: 'bg-warning-subtle text-warning border-warning/30' },
+  dept: { label: '职能部门', cls: 'bg-info-subtle text-info border-info/30' },
+} as const
+
+function FlowPanel() {
+  return (
+    <Card className="mb-4">
+      <CardHeader>
+        <Route className="h-4 w-4 text-primary" />
+        <CardTitle>工单流转总览</CardTitle>
+        <span className="text-[11px] text-muted ml-auto">从市民来电到办结归档：智能体、坐席、职能部门三方协同</span>
+      </CardHeader>
+      <CardBody>
+        <div className="flex flex-wrap items-stretch gap-y-3">
+          {FLOW_STEPS.map((s, i) => {
+            const tag = s.tag ? TAG_META[s.tag] : null
+            return (
+              <div key={s.title} className="flex items-stretch">
+                <div className="w-[8.5rem] rounded-md border border-border bg-surface-elevated px-2.5 py-2 flex flex-col gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-mono text-muted-light">{String(i + 1).padStart(2, '0')}</span>
+                    <span className="text-xs font-semibold text-text-primary leading-none">{s.title}</span>
+                  </div>
+                  <div className="text-[10px] text-muted leading-snug">{s.sub}</div>
+                  {tag && (
+                    <span className={'self-start text-[9px] px-1 py-px rounded-sm border font-medium ' + tag.cls}>{tag.label}</span>
+                  )}
+                </div>
+                {i < FLOW_STEPS.length - 1 && (
+                  <div className="flex items-center px-0.5">
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-light shrink-0" />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        <div className="flex flex-wrap gap-4 text-[10px] text-muted mt-3 pt-2.5 border-t border-border">
+          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-primary/70" />智能体执行</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-warning/70" />人工环节</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-info/70" />部门环节</span>
+          <span className="ml-auto">异常支线：要素缺失 → 澄清补录后重跑；职责交叉 → 人工裁断改派</span>
+        </div>
+      </CardBody>
+    </Card>
+  )
+}
+
+// ---------- 部门职能目录 ----------
+function DeptPanel() {
+  const { data, isLoading } = useSWR(['departments'], () => api.listDepartments())
+  const [q, setQ] = useState('')
+  const depts = data?.departments ?? []
+  const filtered = q
+    ? depts.filter((d) =>
+        [d.name, d.responsibilities, ...d.categories, ...d.keywords, ...d.co_departments]
+          .join('\n')
+          .toLowerCase()
+          .includes(q.toLowerCase()),
+      )
+    : depts
+  return (
+    <Card className="mb-4">
+      <CardHeader>
+        <Building2 className="h-4 w-4 text-primary" />
+        <CardTitle>部门职能目录</CardTitle>
+        <span className="text-[11px] text-muted ml-auto">
+          {depts.length} 个承办单位 · 转派节点按此规则判定主办/协办
+        </span>
+      </CardHeader>
+      <CardBody className="space-y-2.5">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-light" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="搜部门 / 职责 / 分类关键词，如「城管」「油烟」「医保」…"
+            className="w-full h-9 text-sm rounded-md border border-border bg-surface-elevated pl-8 pr-3 focus:outline-none focus:border-primary"
+          />
+        </div>
+        {isLoading ? (
+          <Spinner />
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+            {filtered.map((d) => (
+              <DeptCard key={d.name} d={d} />
+            ))}
+          </div>
+        )}
+        {!isLoading && filtered.length === 0 && (
+          <div className="text-sm text-muted text-center py-6">无匹配部门</div>
+        )}
+        {data?.notice && (
+          <div className="text-[10px] text-muted-light pt-1 border-t border-border">{data.notice}</div>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
+function DeptCard({ d }: { d: DepartmentInfo }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="rounded-md border border-border bg-surface-elevated p-3 flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold text-text-primary leading-tight flex-1 min-w-0">{d.name}</span>
+        <span className="text-[10px] font-mono text-muted-light shrink-0">{d.categories.length} 类</span>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {d.categories.map((c) => (
+          <Badge key={c} tone="primary" className="text-[10px]">{c}</Badge>
+        ))}
+      </div>
+      <p className={'text-xs text-text-secondary leading-relaxed ' + (open ? '' : 'line-clamp-2')}>
+        {d.responsibilities}
+      </p>
+      {(d.co_departments.length > 0 || d.keywords.length > 0) && (
+        <button onClick={() => setOpen(!open)} className="self-start text-[11px] font-medium text-primary hover:underline">
+          {open ? '收起详情' : '协办与关键词'}
+        </button>
+      )}
+      {open && (
+        <div className="space-y-1.5 pt-1.5 border-t border-border">
+          {d.co_departments.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="text-[10px] text-muted shrink-0">协办：</span>
+              {d.co_departments.map((co) => (
+                <span key={co} className="text-[10px] bg-info-subtle text-info rounded px-1.5 py-0.5">{co}</span>
+              ))}
+            </div>
+          )}
+          {d.keywords.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="text-[10px] text-muted shrink-0">识别词：</span>
+              {d.keywords.slice(0, 12).map((kw) => (
+                <span key={kw} className="text-[10px] bg-surface-hover rounded px-1.5 py-0.5">{kw}</span>
+              ))}
+              {d.keywords.length > 12 && <span className="text-[10px] text-muted-light">等 {d.keywords.length} 个</span>}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

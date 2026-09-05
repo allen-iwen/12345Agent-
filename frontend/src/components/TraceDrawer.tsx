@@ -1,4 +1,5 @@
 // 轨迹抽屉：白盒展示每个 Agent 节点的输入/输出/耗时（评委可现场点开看）
+import { useEffect } from 'react'
 import useSWR from 'swr'
 import { X, Clock, ArrowDown, ArrowUp, AlertTriangle, FileSearch } from 'lucide-react'
 import { api } from '../lib/api'
@@ -13,6 +14,16 @@ export function TraceDrawer({ caseId }: { caseId: string }) {
     () => api.listRuns(caseId),
     { refreshInterval: 0 },
   )
+
+  // Esc 关闭（可用性：键盘习惯）
+  useEffect(() => {
+    if (!traceNode) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeTrace()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [traceNode, closeTrace])
 
   if (!traceNode) return null
   const runs = (data?.runs ?? []).filter((r) => r.node === traceNode)
