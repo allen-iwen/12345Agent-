@@ -7,6 +7,9 @@
 - `categories/`：事项分类目录。
 - `departments/`：承办单位职责、排除职责和属地规则。
 - `mock/`：用于开发和测试的脱敏模拟诉求及期望结果。
+- `policies/`：政策依据库。`policy_references.json` 为精选法规白名单（QC 引用校验基准）；`library/` 为 `scripts/fetch_policies.py` 从 gov.cn 等权威源抓取的法规全文（纯文本，头部带来源元信息），已向量化入 RAG；其余 `sample_*.txt` 为上传解析的示例文档。
+
+新增数据子目录时：英文小写复数命名（与现有 `categories/`、`departments/` 一致），并在本清单登记用途。
 
 ## 官方样例
 

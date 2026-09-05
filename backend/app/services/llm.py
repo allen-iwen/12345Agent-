@@ -88,24 +88,31 @@ def chat_json(
     *,
     model: str | None = None,
     temperature: float = 0.2,
-    max_tokens: int = 8192,
+    max_tokens: int = 16384,
 ) -> dict:
     """调用大模型并解析 JSON 对象返回。
 
     注意：推理型模型的 reasoning tokens 计入 max_tokens（此前 2048 会被推理
-    链耗尽导致可见内容为空），故默认预算放大到 8192。
+    链耗尽导致可见内容为空），预算须显著大于"可见输出+推理"之和，默认 16384。
+    不要在调用点随手压小该值。
     """
     settings = get_settings()
     client = get_client()
+    kwargs: dict[str, Any] = {}
+    if settings.llm_json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+    if settings.llm_disable_thinking:
+        # vLLM 部署的 Qwen 系模型：关闭内置思考链（避免思考 token 占用与格式漂移）
+        kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
     response = client.chat.completions.create(
         model=model or settings.llm_model,
         temperature=temperature,
         max_tokens=max_tokens,
-        response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
+        **kwargs,
     )
     content = response.choices[0].message.content or ""
     if not content.strip():

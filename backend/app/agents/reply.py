@@ -79,7 +79,7 @@ def run(
         "群众诉求原文：\n" + raw_text + "\n\n"
         "请草拟答复 JSON。"
     )
-    data = chat_json(SYSTEM, user, max_tokens=3000)
+    data = chat_json(SYSTEM, user)
     policy_refs = [str(p).strip() for p in data.get("policy_refs", []) or [] if str(p).strip()]
     return ReplyDraft(
         reply_text=str(data.get("reply_text", "")).strip(),

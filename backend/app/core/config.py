@@ -16,10 +16,16 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
 
-    # 大模型（OpenAI 兼容接口，默认 DeepSeek）
+    # 大模型（OpenAI 兼容接口，默认 DeepSeek；实验可切本地 vLLM 服务）
     llm_api_key: str = "replace_me"
     llm_base_url: str = "https://api.deepseek.com"
     llm_model: str = "deepseek-v4-flash"
+    # 本地实验引擎（vLLM 部署 Qwen）可能不支持 response_format=json_object，
+    # 置 false 后依赖 _extract_json 宽松解析（含裸换行修复）
+    llm_json_mode: bool = True
+    # 关闭模型内置思考链（Qwen 系 chat_template_kwargs.enable_thinking=false），
+    # DeepSeek 推理模型忽略此开关
+    llm_disable_thinking: bool = False
 
     # 科大讯飞录音文件转写（第二阶段）
     kdsf_asr_app_id: str = "replace_me"
