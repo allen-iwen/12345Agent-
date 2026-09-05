@@ -157,7 +157,7 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
             if (f) uploadAudio(f)
           }}
         />
-        <Button size="md" onClick={() => fileRef.current?.click()} disabled={asrBusy || busy} title="上传录音，本地 SenseVoice 转写">
+        <Button size="md" onClick={() => fileRef.current?.click()} disabled={asrBusy || busy} title="上传录音，双引擎转写（讯飞云端优先，本地兜底）并降噪整理">
           {asrBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
           录音
         </Button>
