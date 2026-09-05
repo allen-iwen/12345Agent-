@@ -1,122 +1,77 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+// 应用外壳：顶栏路由 + 全局布局
+import { useEffect, useState } from 'react'
+import { HashRouter, Link, useLocation } from 'react-router-dom'
+import { Activity, BookOpen, LayoutDashboard } from 'lucide-react'
+import useSWR from 'swr'
+import { api } from './lib/api'
+import { cn } from './lib/utils'
+import { Workbench } from './pages/Workbench'
+import { KnowledgePage } from './pages/KnowledgePage'
 
-function App() {
-  const [count, setCount] = useState(0)
-
+export default function App() {
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    <HashRouter>
+      <Shell />
+    </HashRouter>
   )
 }
 
-export default App
+function Shell() {
+  const loc = useLocation()
+  return (
+    <div className="h-full flex flex-col">
+      <TopBar route={loc.pathname} />
+      <div className="flex-1 min-h-0">
+        {loc.pathname.startsWith('/knowledge') ? <KnowledgePage /> : <Workbench />}
+      </div>
+    </div>
+  )
+}
+
+function TopBar({ route }: { route: string }) {
+  const { data: health } = useSWR(['health'], () => api.health(), { refreshInterval: 10000 })
+  const [up, setUp] = useState(true)
+  useEffect(() => {
+    setUp(health?.status === 'ok')
+  }, [health])
+
+  const tabs = [
+    { to: '/', label: '工作台', icon: LayoutDashboard },
+    { to: '/knowledge', label: '知识库', icon: BookOpen },
+  ]
+
+  return (
+    <header className="h-12 shrink-0 border-b border-border bg-surface-elevated flex items-center gap-4 px-4">
+      <Link to="/" className="flex items-center gap-2.5 group">
+        <span className="h-7 w-7 rounded-lg bg-primary text-white text-[11px] font-bold flex items-center justify-center shadow-sm">
+          12345
+        </span>
+        <span className="text-sm font-semibold group-hover:text-primary transition-colors">热线工单智能体</span>
+      </Link>
+
+      <nav className="flex items-center gap-1 ml-4">
+        {tabs.map((t) => {
+          const active = t.to === '/' ? !route.startsWith('/knowledge') : route.startsWith(t.to)
+          return (
+            <Link
+              key={t.to}
+              to={t.to}
+              className={cn(
+                'inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] font-medium transition-colors',
+                active ? 'bg-primary-subtle text-primary-dark' : 'text-muted hover:bg-surface-hover hover:text-text',
+              )}
+            >
+              <t.icon className="h-3.5 w-3.5" />
+              {t.label}
+            </Link>
+          )
+        })}
+      </nav>
+
+      <div className="ml-auto flex items-center gap-2 text-xs text-muted">
+        <Activity className={'h-3.5 w-3.5 ' + (up ? 'text-success' : 'text-danger')} />
+        <span className="font-mono">{up ? 'API 正常' : 'API 离线'}</span>
+      </div>
+    </header>
+  )
+}

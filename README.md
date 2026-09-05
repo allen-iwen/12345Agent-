@@ -156,3 +156,77 @@ python scripts/prepare_dataset.py data/raw/official_work_orders
 官方 Excel 与配套录音按类别放入 `backend/data/raw/official_work_orders/`。当前 `prepare_dataset.py` 只匹配并处理 Excel，不会打开、转写或分析录音。
 
 真实密钥只写入 `backend/.env`，不得提交 Git。真实姓名、手机号、身份证号、详细地址、未经授权的录音和未脱敏工单不得进入公开仓库。
+
+## 工单智能体工作台
+
+本项目后端实现了「诉求理解 → 标准化工单生成 → 事项分类 → 承办单位推荐 → 回复建议」全链路，所有结果仅供辅助，最终工单内容、转派结果和群众回复必须由工作人员审核确认。
+
+### 启动顺序
+
+```powershell
+# 终端 1：后端（端口 8000）
+cd backend
+.\venv\Scripts\Activate.ps1
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# 终端 2：前端（端口 5173）
+cd frontend
+npm run dev
+```
+
+浏览器打开 `http://localhost:5173` 即可使用工作台：
+
+1. 左栏「受理新诉求」：支持 **录音上传**（本地 SenseVoice 转写，无需外部 API）、文本录入（Ctrl+Enter 提交）、六类演示案例一键填充；
+2. 主区顶部是 **流水线轨道**（理解 → 工单 → 分类 → 转派 → 答复），每个节点随审核状态变色，**点击任一节点打开轨迹抽屉**，白盒查看该节点每次执行的输入 / 输出 / 耗时；
+3. **工单质量检查**面板：10 项规则校验（要素完整性/分类置信度/职责边界/政策引用真实性等），warn 不阻断但提示人工关注；
+4. 右侧四张审核卡片（标准化工单 / 事项分类 / 承办单位 / 答复草拟），每节可「确认」或「修改」（JSON 编辑）；
+5. **需人工判断提示**：职责交叉/多类并存/信息不足时，分类与转派卡片显示琥珀色横幅及具体原因；
+6. 答复卡片含 **回访参考话术** 与 **政策依据引用**（仅引用 `data/policies/policy_references.json` 中真实存在的公开法规，QC 校验不通过会标警）；
+7. 左下「相似官方工单」面板基于 BM25 检索 18 条官方样例，可一键复制官方答复口径；
+8. 原始诉求卡内可录入回访补充信息，触发全链路重跑；
+9. 四节审核完成后，底部「最终放行 · 归档」亮起，点击后案件完成；
+10. 顶栏「知识库」页：官方历史工单浏览（分类过滤 + 全文检索）+ **热点统计**（官方样例与本系统受理的类别分布对比）。
+
+### 政策依据库
+
+`backend/data/policies/policy_references.json` 收录国办发〔2020〕53号、《噪声污染防治法》《物业管理条例》《市容和环境卫生管理条例》《消费者权益保护法》《保障农民工工资支付条例》《医疗保障基金使用监督管理条例》《道路交通安全法》共 8 份真实公开法规。回复节点仅可引用库内文件（prompt 强约束 + QC 双重校验），来源为公开法规库，使用范围见文件内说明。
+
+### API 一览
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/cases` | 录入诉求文本，启动全链路 |
+| GET | `/api/cases` | 案件列表（最近 30 条） |
+| GET | `/api/cases/{id}` | 案件详情（含各节产物 + 审核状态 + QC 检查） |
+| POST | `/api/cases/{id}/review` | 分节 `approve`/`modify`；`section=final` + `approve` 触发工作流 resume |
+| POST | `/api/cases/{id}/clarify` | 补充市民信息后重跑链路（用新 thread_id，保留历史 checkpoint） |
+| POST | `/api/asr` | 上传录音（multipart）→ 本地 SenseVoice 转写为文本 |
+| GET | `/api/runs/cases/{id}` | 该案件全部 Agent 节点轨迹（输入/输出/耗时/状态） |
+| GET | `/api/knowledge/orders` | 官方历史工单（`q`/`category` 过滤） |
+| GET | `/api/knowledge/categories` | 12 大类目录 |
+| GET | `/api/knowledge/search` | BM25 相似工单检索（`text`/`top_k`） |
+| GET | `/api/knowledge/stats` | 热点统计（类别分布 / 紧急 / 重复 / 归档） |
+| GET | `/health`、`/docs` | 健康检查 + Swagger 文档 |
+
+### 检索与提示词要点
+
+- 事项分类、承办单位推荐、回复建议三个节点通过 `rank-bm25` 检索 `data/processed/work_orders.jsonl` 中的相似官方工单作为参考；
+- 12 大类目录在 `data/categories/category_catalog.json`，承办单位职责规则在 `data/departments/department_rules.json`（未录入时回退到历史工单参考）；
+- 紧急/危险诉求（燃气泄漏、火灾、人身安全等）会被 `urgent=true` 标记，Agent 在 `manual_action` 中提示工作人员紧急处置，并明确"Agent 不替代报警或应急指挥"。
+
+### 自动化测试
+
+```powershell
+cd backend
+.\venv\Scripts\Activate.ps1
+python -m pytest -v
+```
+
+- `tests/test_workflow.py` 用桩 LLM 跑完整链路（无需真实 API），验证 5 节点全部产出、`final` 放行可 resume 至完成；
+- `tests/test_health.py` 验证 `/health` 接口。
+
+`backend/scripts/api_e2e.py` 是真实链路冒烟脚本，串一遍创建→分节审→改→最终放行的全流程。
+
+### 第二阶段：科大讯飞录音转写
+
+`.env` 预留了 `KDXF_ASR_*` 字段（`APP_ID` / `ACCESS_KEY_ID` / `ACCESS_KEY_SECRET`），办完讯飞开放平台的实名认证和免费试用后即可接入。接入时可在 `app/agents/` 下新增一个 `transcribe.py` 节点，把录音 URL 转写为文本后再走理解节点。
