@@ -44,8 +44,17 @@ def _db() -> sqlite3.Connection:
         _conn.row_factory = sqlite3.Row
         _conn.execute("PRAGMA journal_mode=WAL")  # 读写不互斥，并发场景防 database is locked
         _conn.execute(_SCHEMA)
+        _migrate(_conn)
         _conn.commit()
     return _conn
+
+
+def _migrate(db: sqlite3.Connection) -> None:
+    """幂等迁移：为既有库补新增列（assessment 存急件分级等评估结论）。"""
+    cols = {r[1] for r in db.execute("PRAGMA table_info(cases)").fetchall()}
+    if "assessment" not in cols:
+        db.execute("ALTER TABLE cases ADD COLUMN assessment TEXT")
+        db.commit()
 
 
 def _now() -> str:
@@ -54,8 +63,8 @@ def _now() -> str:
 
 def _row_to_dict(row: sqlite3.Row) -> dict:
     d = dict(row)
-    for key in ("understanding", "work_order", "classification", "routing", "reply_draft"):
-        d[key] = json.loads(d[key]) if d[key] else None
+    for key in ("understanding", "work_order", "classification", "routing", "reply_draft", "assessment"):
+        d[key] = json.loads(d[key]) if d.get(key) else None
     d["review"] = json.loads(d["review"]) if d["review"] else {}
     d["clarification_context"] = json.loads(d["clarification_context"]) or []
     return d
@@ -87,6 +96,7 @@ def save_state(
     classification: Optional[dict] = None,
     routing: Optional[dict] = None,
     reply_draft: Optional[dict] = None,
+    assessment: Optional[dict] = None,
     clarification_context: Optional[list[str]] = None,
     error: Optional[str] = None,
     completed: bool = False,
@@ -112,6 +122,9 @@ def save_state(
     if reply_draft is not None:
         sets.append("reply_draft = ?")
         params.append(json.dumps(reply_draft, ensure_ascii=False))
+    if assessment is not None:
+        sets.append("assessment = ?")
+        params.append(json.dumps(assessment, ensure_ascii=False))
     if clarification_context is not None:
         sets.append("clarification_context = ?")
         params.append(json.dumps(clarification_context, ensure_ascii=False))

@@ -89,6 +89,7 @@ class CaseState(TypedDict, total=False):
     work_order: dict | None
     classification: dict | None
     routing: dict | None
+    urgency: dict | None
     reply_draft: dict | None
     status: str
     review_note: str
@@ -143,7 +144,8 @@ def node_classify(state: CaseState) -> dict:
 
 
 def node_route(state: CaseState) -> dict:
-    from app.schemas.models import Classification, Routing, WorkOrder
+    from app.schemas.models import Classification, Understanding, WorkOrder
+    from app.services import urgency as urgency_svc
 
     with _trace(state.get("case_id"), "route", {
         "raw_text": state.get("raw_text", ""),
@@ -153,9 +155,12 @@ def node_route(state: CaseState) -> dict:
         wo = WorkOrder(**state["work_order"])
         cls = Classification(**state["classification"])
         routing = route.run(wo, cls, state["raw_text"])
+        # 支柱二：急件识别与办理时限分级（规则式，随转派节点产出）
+        und = Understanding(**state["understanding"]) if state.get("understanding") else None
+        urg = urgency_svc.assess(state["raw_text"], und, wo, cls)
         out = routing.model_dump()
-        t.done(out)
-    return {"routing": out}
+        t.done({**out, "urgency": urg})
+    return {"routing": out, "urgency": urg}
 
 
 def node_reply(state: CaseState) -> dict:

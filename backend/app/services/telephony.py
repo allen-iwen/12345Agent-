@@ -78,6 +78,7 @@ def ingest_recording(recording_url: str, call_id: str, channel: str = "电话（
             classification=values.get("classification"),
             routing=values.get("routing"),
             reply_draft=values.get("reply_draft"),
+            assessment={"urgency": values.get("urgency")} if values.get("urgency") else None,
             error=values.get("error"),
             completed=status == "completed",
         )

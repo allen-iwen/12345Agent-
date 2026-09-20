@@ -19,7 +19,7 @@ from app.schemas.models import (
     Understanding,
     WorkOrder,
 )
-from app.services import early_warning, qc, tracing
+from app.services import early_warning, governance, qc, tracing
 from app.workflow.graph import get_graph, run_chain
 from langgraph.types import Command
 
@@ -46,14 +46,18 @@ def _to_case(row: dict, *, enrich: bool = True) -> Case:
         completed_at=row.get("completed_at") or "",
         error=row.get("error"),
     )
+    assessment = row.get("assessment") or {}
     try:
         case.qc_checks = qc.run_qc(case)
     except Exception:  # noqa: BLE001 - QC 失败不影响案件返回
         logger.warning("qc failed", exc_info=True)
+    case.urgency = assessment.get("urgency") or None
     if enrich:
         try:
             case.agent_seconds = round(tracing.sum_case_ms(case.case_id) / 1000, 1) or None
             case.early_warning = early_warning.detect(case)
+            # 支柱三：诉求治理建议包（重复诉求 / 并案预警 / 退回风险）
+            case.governance = governance.assess(case) or None
         except Exception:  # noqa: BLE001
             logger.warning("enrich failed", exc_info=True)
     return case
@@ -82,6 +86,7 @@ def create_case(req: CreateCaseRequest) -> Case:
         classification=values.get("classification"),
         routing=values.get("routing"),
         reply_draft=values.get("reply_draft"),
+        assessment={"urgency": values.get("urgency")} if values.get("urgency") else None,
         error=values.get("error"),
         completed=status == "completed",
     )
@@ -176,6 +181,7 @@ def clarify_case(case_id: str, req: ClarifyRequest) -> Case:
         classification=values.get("classification"),
         routing=values.get("routing"),
         reply_draft=values.get("reply_draft"),
+        assessment={"urgency": values.get("urgency")} if values.get("urgency") else None,
         clarification_context=ctx,
         error=values.get("error"),
         completed=values.get("status") == "completed",

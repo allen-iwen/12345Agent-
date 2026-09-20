@@ -76,6 +76,13 @@ class Routing(BaseModel):
         description="职责交叉/无法明确主管部门时为 true，提示工作人员人工判断",
     )
     judgment_note: str = Field(default="", description="需要人工判断的具体原因")
+    # ---- 支柱一：属地+部门双维派单决策（规则锚定，可追溯）----
+    dispatch_path: str = Field(default="", description="派单决策路径：专业直派 / 属地主办 / 类别兜底")
+    primary_kind: str = Field(default="", description="主办单位类型：区县 / 开发区 / 市直部门 / 专业机构")
+    evidence_chain: list[dict] = Field(default_factory=list, description="依据链：政策依据/属地判定/职责依据/历史案例")
+    return_risk: str = Field(default="", description="退回风险提示（职责交叉等）")
+    rule_primary: str = Field(default="", description="规则引擎判定的主办单位（与模型结论比对用）")
+    rule_llm_agreement: bool = Field(default=True, description="规则判定与模型复核是否一致；不一致时提示人工判断")
 
 
 # ---------- 回复建议 ----------
@@ -126,6 +133,14 @@ class Case(BaseModel):
     early_warning: Optional[dict] = Field(
         default=None,
         description="未诉先办苗头预警：同点位同类诉求短期聚集时非空（只读）",
+    )
+    urgency: Optional[dict] = Field(
+        default=None,
+        description="支柱二：急件识别与办理时限分级（等级/时限建议/处置动作/政策依据，只读）",
+    )
+    governance: Optional[dict] = Field(
+        default=None,
+        description="支柱三：诉求治理建议包（重复诉求督办/并案预警/退回风险，只读）",
     )
     agent_seconds: Optional[int] = Field(
         default=None,
