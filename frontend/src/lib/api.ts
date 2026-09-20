@@ -42,6 +42,13 @@ export interface CaseView {
     note: string
     needs_human_judgment: boolean
     judgment_note: string
+    // 支柱一：属地+部门双维派单决策
+    dispatch_path?: string
+    primary_kind?: string
+    evidence_chain?: { type: string; source: string; detail: string }[]
+    return_risk?: string
+    rule_primary?: string
+    rule_llm_agreement?: boolean
   } | null
   reply_draft: {
     reply_text: string
@@ -66,6 +73,24 @@ export interface CaseView {
     total: number
   } | null
   agent_seconds: number | null
+  // 支柱二：急件识别与办理时限分级
+  urgency?: {
+    level: '特急' | '紧急' | '一般'
+    label: string
+    limit_hint: string
+    actions: string[]
+    signals: string[]
+    basis: { name: string; clause: string }
+    escalated_by_understanding: boolean
+  } | null
+  // 支柱三：诉求治理建议包
+  governance?: {
+    aggregation?: { kind: string; message: string; total: number; window_days: number; suggestion: string; related: { case_id: string; title: string; created_at: string; shared_place?: string }[] }
+    repeat?: { is_repeat: boolean; markers: string[]; related_count: number; message: string }
+    return_risk?: { level: string; message: string; suggestion: string }
+    suggestions: string[]
+    has_governance_alert: boolean
+  } | null
 }
 
 export interface StatsView {

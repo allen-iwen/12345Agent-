@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import useSWR from 'swr'
 import {
   AlertTriangle, AudioLines, Check, ChevronRight, Loader2, PenLine,
-  PencilLine, Send, ShieldCheck, Square, Upload, X,
+  PencilLine, Send, Square, Upload, X,
 } from 'lucide-react'
 import { api, type CaseView } from '../lib/api'
 import { fmtTime, STATUS_META } from '../lib/utils'
@@ -393,8 +393,14 @@ function CaseDetail({ data, onChanged }: { data: CaseView; onChanged: () => void
         </div>
       )}
 
+      {/* 支柱二：急件分级与办理时限 */}
+      {data.urgency && <UrgencyBanner urgency={data.urgency} />}
+
       {/* 未诉先办 · 苗头预警 */}
       {data.early_warning && <EarlyWarningBanner warning={data.early_warning} />}
+
+      {/* 支柱三：诉求治理建议 */}
+      {data.governance?.has_governance_alert && <GovernancePanel governance={data.governance} />}
 
       {/* 工单质量检查 */}
       {data.qc_checks?.length > 0 && <QcPanel checks={data.qc_checks} />}
@@ -758,6 +764,18 @@ function RoutingCard({ data, onChanged }: { data: CaseView; onChanged: () => voi
         {!rt && <SkeletonText />}
         {rt && !s.editing && (
           <div className="space-y-2">
+            {/* 支柱一：派单决策路径（规则锚定） */}
+            {rt.dispatch_path && (
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted border-b border-border pb-2">
+                <Badge tone="primary">派单决策 · {rt.dispatch_path}</Badge>
+                {rt.primary_kind && <span>主办类型：{rt.primary_kind}</span>}
+                {rt.rule_llm_agreement === false ? (
+                  <span className="text-warning">⚠ 规则与模型结论不一致</span>
+                ) : (
+                  <span className="text-success">规则锚定 · 模型复核一致</span>
+                )}
+              </div>
+            )}
             {rt.needs_human_judgment && (
               <div className="flex items-start gap-2 bg-warning-subtle border border-warning/30 rounded-md p-2.5">
                 <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
@@ -786,11 +804,38 @@ function RoutingCard({ data, onChanged }: { data: CaseView; onChanged: () => voi
                 </div>
               </div>
             ))}
+            {rt.return_risk && rt.return_risk.indexOf('权责清晰') < 0 && (
+              <div className="text-[11px] text-warning bg-warning-subtle/60 border border-warning/25 rounded-md px-2.5 py-1.5 leading-relaxed">
+                <span className="font-medium">退回风险：</span>
+                {rt.return_risk}
+              </div>
+            )}
             {duty && (
               <div className="text-[11px] text-muted bg-surface border-l-2 border-primary/30 rounded-r-md px-2.5 py-1.5 leading-relaxed">
                 <span className="font-medium text-text-secondary">主办职责：</span>
                 {duty}
               </div>
+            )}
+            {/* 支柱一：依据链（可展开，逐条可追溯） */}
+            {rt.evidence_chain && rt.evidence_chain.length > 0 && (
+              <details className="text-[11px] bg-surface border border-border rounded-md">
+                <summary className="cursor-pointer px-2.5 py-1.5 text-text-secondary select-none">
+                  派单依据链（{rt.evidence_chain.length} 条 · 可追溯）
+                </summary>
+                <div className="px-2.5 pb-2 space-y-1.5 border-t border-border pt-2">
+                  {rt.evidence_chain.map((e, i) => (
+                    <div key={i} className="flex gap-2">
+                      <span className="shrink-0 rounded-[2px] border border-border bg-surface-hover text-muted text-[10px] px-1 py-px leading-4">
+                        {e.type}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="text-muted-light">{e.source}</div>
+                        <div className="text-text-secondary leading-relaxed">{e.detail}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
             )}
             {rt.note && <div className="text-xs text-muted border-t border-border pt-2">{rt.note}</div>}
           </div>
@@ -875,6 +920,93 @@ function EarlyWarningBanner({ warning }: { warning: NonNullable<CaseView['early_
             )}
           </div>
         </div>
+      </CardBody>
+    </Card>
+  )
+}
+
+// ---- 支柱二：急件分级与办理时限 ----
+function UrgencyBanner({ urgency }: { urgency: NonNullable<CaseView['urgency']> }) {
+  const tone =
+    urgency.level === '特急'
+      ? { wrap: 'border-danger/40 bg-danger-subtle', chip: 'bg-danger text-white', text: 'text-danger' }
+      : urgency.level === '紧急'
+        ? { wrap: 'border-warning/40 bg-warning-subtle', chip: 'bg-warning text-white', text: 'text-warning' }
+        : { wrap: 'border-border bg-surface-elevated', chip: 'bg-surface-hover text-muted', text: 'text-muted' }
+  return (
+    <Card className={'mb-4 ' + tone.wrap}>
+      <CardBody className="py-3">
+        <div className="flex items-start gap-2.5">
+          <span className={'shrink-0 mt-px rounded-[2px] text-[10px] font-semibold px-1.5 py-0.5 leading-4 ' + tone.chip}>
+            {urgency.level}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <span className={'text-xs font-semibold ' + tone.text}>{urgency.label}</span>
+              <span className="text-[11px] text-muted">{urgency.limit_hint}</span>
+            </div>
+            {urgency.signals.length > 0 && (
+              <div className="mt-1 text-[11px] text-text-secondary">
+                识别特征：{urgency.signals.join('、')}
+                {urgency.escalated_by_understanding && '（经诉求理解节点紧急标记升级）'}
+              </div>
+            )}
+            {urgency.level !== '一般' && urgency.actions.length > 0 && (
+              <ul className="mt-1.5 space-y-0.5">
+                {urgency.actions.map((a) => (
+                  <li key={a} className="text-[11px] text-text-secondary flex gap-1.5">
+                    <span className="text-muted-light">·</span>
+                    {a}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {urgency.basis?.name && (
+              <div className="mt-1.5 text-[10px] text-muted-light border-t border-border pt-1.5">
+                依据：{urgency.basis.name}——{urgency.basis.clause}
+              </div>
+            )}
+          </div>
+        </div>
+      </CardBody>
+    </Card>
+  )
+}
+
+// ---- 支柱三：诉求治理建议 ----
+function GovernancePanel({ governance }: { governance: NonNullable<CaseView['governance']> }) {
+  const rows: { tag: string; text: string }[] = []
+  if (governance.repeat?.is_repeat) rows.push({ tag: '重复诉求', text: governance.repeat.message })
+  if (governance.aggregation) rows.push({ tag: '并案预警', text: governance.aggregation.message })
+  if (governance.return_risk) rows.push({ tag: '退回风险', text: governance.return_risk.message })
+  return (
+    <Card className="mb-4">
+      <CardHeader>
+        <CardTitle>诉求治理提示</CardTitle>
+        <span className="text-[11px] text-muted ml-auto">从"办单"到"治事"</span>
+      </CardHeader>
+      <CardBody className="py-3 space-y-2">
+        {rows.map((r) => (
+          <div key={r.tag} className="flex items-start gap-2">
+            <span className="shrink-0 mt-px rounded-[2px] border border-border bg-surface-hover text-muted text-[10px] font-medium px-1.5 py-0.5 leading-4">
+              {r.tag}
+            </span>
+            <p className="text-xs text-text-secondary leading-relaxed">{r.text}</p>
+          </div>
+        ))}
+        {governance.suggestions?.length > 0 && (
+          <div className="border-t border-border pt-2">
+            <div className="text-[11px] text-muted mb-1">治理建议</div>
+            <ul className="space-y-0.5">
+              {governance.suggestions.map((s) => (
+                <li key={s} className="text-xs text-text-secondary flex gap-1.5">
+                  <span className="text-muted-light">·</span>
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </CardBody>
     </Card>
   )
