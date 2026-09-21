@@ -19,7 +19,8 @@ from app.schemas.models import (
     Understanding,
     WorkOrder,
 )
-from app.services import early_warning, governance, qc, tracing
+from app.services import deadline as deadline_svc
+from app.services import early_warning, governance, qc, reply_audit, tracing
 from app.workflow.graph import get_graph, run_chain
 from langgraph.types import Command
 
@@ -52,12 +53,33 @@ def _to_case(row: dict, *, enrich: bool = True) -> Case:
     except Exception:  # noqa: BLE001 - QC 失败不影响案件返回
         logger.warning("qc failed", exc_info=True)
     case.urgency = assessment.get("urgency") or None
+    # 支柱五：办理时限倒计时（纯规则，成本极低，列表与详情都返回，供队列临期/超期角标）
+    try:
+        case.deadline = deadline_svc.compute(
+            case.created_at,
+            (case.urgency or {}).get("level", "一般"),
+            closed=case.status == "completed",
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning("deadline compute failed", exc_info=True)
     if enrich:
         try:
             case.agent_seconds = round(tracing.sum_case_ms(case.case_id) / 1000, 1) or None
             case.early_warning = early_warning.detect(case)
-            # 支柱三：诉求治理建议包（重复诉求 / 并案预警 / 退回风险）
-            case.governance = governance.assess(case) or None
+            # 支柱四：答复合规审查（读时计算）
+            if case.reply_draft is not None:
+                case.reply_audit = reply_audit.audit(
+                    case.reply_draft.reply_text,
+                    case.reply_draft.policy_refs or [],
+                    {
+                        "raw_text": case.raw_text,
+                        "event_description": (case.work_order.event_description if case.work_order else ""),
+                        "urgency": case.urgency,
+                        "manual_action": (case.understanding.manual_action if case.understanding else None),
+                    },
+                )
+            # 支柱三：诉求治理建议包（含时限督办）
+            case.governance = governance.assess(case, deadline=case.deadline) or None
         except Exception:  # noqa: BLE001
             logger.warning("enrich failed", exc_info=True)
     return case
@@ -98,6 +120,36 @@ def create_case(req: CreateCaseRequest) -> Case:
 @router.get("", response_model=list[Case])
 def list_cases(limit: int = 50) -> list[Case]:
     return [_to_case(r, enrich=False) for r in repository.list_cases(limit=limit)]
+
+
+@router.get("/deadlines")
+def list_deadlines(window_hours: int = 24) -> list[dict]:
+    """支柱五：临期与超期清单（供看板与督办使用）。
+
+    含：已超期案件，以及剩余时长 ≤ window_hours 的案件（早期预警）。
+    """
+    out: list[dict] = []
+    for row in repository.list_cases(limit=300):
+        assessment = row.get("assessment") or {}
+        level = (assessment.get("urgency") or {}).get("level", "一般")
+        dl = deadline_svc.compute(row["created_at"], level, closed=row["status"] == "completed")
+        if dl["state"] == "已办结":
+            continue
+        if dl["state"] == "超期" or dl["remaining_hours"] <= window_hours:
+            wo = row.get("work_order") or {}
+            out.append({
+                "case_id": row["case_id"],
+                "title": wo.get("title") or (row.get("raw_text") or "")[:30],
+                "status": row["status"],
+                "level": dl["level"],
+                "state": dl["state"],
+                "due_at": dl["due_at"],
+                "remaining_hours": dl["remaining_hours"],
+                "mode": dl["mode"],
+                "supervision": dl.get("supervision", ""),
+            })
+    out.sort(key=lambda x: (x["state"] != "超期", x["remaining_hours"]))
+    return out[:50]
 
 
 @router.get("/{case_id}", response_model=Case)

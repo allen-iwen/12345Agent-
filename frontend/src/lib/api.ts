@@ -88,8 +88,34 @@ export interface CaseView {
     aggregation?: { kind: string; message: string; total: number; window_days: number; suggestion: string; related: { case_id: string; title: string; created_at: string; shared_place?: string }[] }
     repeat?: { is_repeat: boolean; markers: string[]; related_count: number; message: string }
     return_risk?: { level: string; message: string; suggestion: string }
+    overdue?: { level: string; message: string; suggestion: string }
     suggestions: string[]
     has_governance_alert: boolean
+  } | null
+  // 支柱四：答复合规审查
+  reply_audit?: {
+    risk_level: '高' | '中' | '低' | '无'
+    risk_note: string
+    findings: { type: string; label: string; severity: 'high' | 'medium' | 'low'; quote: string; index: number; suggestion: string; source: string }[]
+    rewrite_hint: string[]
+    checked_rules: number
+    llm_reviewed: boolean
+    basis: { name: string; clause: string }
+  } | null
+  // 支柱五：办理时限倒计时
+  deadline?: {
+    level: string
+    label: string
+    due_at: string
+    mode: string
+    total_hours: number
+    remaining_hours: number
+    state: '正常' | '临期' | '超期' | '已办结'
+    near_due_threshold_hours: number
+    basis: { name: string; clause: string }
+    commitment_note: string
+    notes: string[]
+    supervision?: string
   } | null
 }
 

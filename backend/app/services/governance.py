@@ -67,8 +67,8 @@ def _return_risk(case) -> dict | None:
     }
 
 
-def assess(case, routing=None) -> dict:
-    """产出治理建议包（重复诉求 / 并案预警 / 退回风险）。"""
+def assess(case, routing=None, deadline: dict | None = None) -> dict:
+    """产出治理建议包（重复诉求 / 并案预警 / 退回风险 / 时限督办）。"""
     out: dict = {}
     try:
         warning = early_warning.detect(case)
@@ -92,6 +92,14 @@ def assess(case, routing=None) -> dict:
         out["repeat"] = repeat
     if risk:
         out["return_risk"] = risk
+    # 支柱五：时限督办（临期/超期）
+    if deadline and deadline.get("state") in ("临期", "超期"):
+        out["overdue"] = {
+            "level": "超期" if deadline["state"] == "超期" else "临期",
+            "message": f"办理时限{deadline['state']}（到期 {deadline.get('due_at', '')}，"
+                       f"剩余 {deadline.get('remaining_hours', 0)} 小时）",
+            "suggestion": deadline.get("supervision", ""),
+        }
 
     suggestions = []
     if out.get("aggregation"):
@@ -100,6 +108,8 @@ def assess(case, routing=None) -> dict:
         suggestions.append("核查前次办理结果，办理不到位的按规范启动督办")
     if risk:
         suggestions.append("派前协调主办单位并抄送属地热线主管部门")
+    if out.get("overdue"):
+        suggestions.append(out["overdue"]["suggestion"] or "按时限要求督办承办单位")
     out["suggestions"] = suggestions
     out["has_governance_alert"] = bool(suggestions)
     return out

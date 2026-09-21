@@ -49,6 +49,36 @@ class Settings(BaseSettings):
     telephony_webhook_secret: str = ""  # 回调鉴权，生产必配；空=放行并告警（联调）
     telephony_recording_dir: Path = BACKEND_ROOT / "storage" / "telephony_recordings"
 
+    # ---- 多模态视觉（图片证据受理）----
+    # MiniMax OpenAI 兼容接口：POST {base}/v1/chat/completions，content 支持 image_url（URL 或 data URL）
+    vision_provider: str = "none"  # minimax | qianfan | none
+    vision_base_url: str = "https://api.minimaxi.com/v1"
+    vision_api_key: str = ""
+    vision_model: str = "MiniMax-M3"
+    # 备用 provider（主 provider 不可用时自动降级）
+    vision_fallback_provider: str = ""
+    vision_fallback_base_url: str = ""
+    vision_fallback_api_key: str = ""
+    vision_fallback_model: str = ""
+    vision_timeout_s: int = 30
+    attachment_dir: Path = BACKEND_ROOT / "storage" / "attachments"
+
+    # ---- 第二模型交叉复核（默认关闭；评测/演示开启）----
+    llm_review_enabled: bool = False
+    llm_review_model: str = ""
+    llm_review_base_url: str = ""
+    llm_review_api_key: str = ""
+
+    # ---- 轻量 RBAC 与审计 ----
+    # True 时对关键写操作强制鉴权；开发态可置 False 保持无感
+    rbac_enabled: bool = False
+    session_secret: str = ""  # 空则启动时生成临时密钥并告警
+    session_ttl_hours: int = 12
+
+    # ---- 办理时限 ----
+    deadline_workdays_only: bool = True  # 是否按工作日计算一般件时限
+    holidays_path: Path = BACKEND_ROOT / "data" / "dispatch" / "holidays.json"
+
 
 @lru_cache
 def get_settings() -> Settings:

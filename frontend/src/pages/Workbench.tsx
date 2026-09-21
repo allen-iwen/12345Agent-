@@ -315,12 +315,23 @@ function QueuePanel({
                 {c.understanding?.repeat_request && (
                   <span className="h-4 min-w-4 px-0.5 rounded-[2px] border border-warning/40 text-warning text-[10px] font-semibold leading-none flex items-center justify-center shrink-0" title="重复诉求">重</span>
                 )}
+                {c.deadline?.state === '超期' && (
+                  <span className="h-4 px-1 rounded-[2px] bg-danger text-white text-[10px] font-semibold leading-none flex items-center justify-center shrink-0" title={`已超期（到期 ${c.deadline.due_at}）`}>超期</span>
+                )}
+                {c.deadline?.state === '临期' && (
+                  <span className="h-4 px-1 rounded-[2px] border border-warning text-warning text-[10px] font-semibold leading-none flex items-center justify-center shrink-0" title={`即将到期（到期 ${c.deadline.due_at}）`}>临期</span>
+                )}
                 <span className="text-[13px] font-medium leading-snug truncate flex-1">
                   {c.work_order?.title ?? c.raw_text.slice(0, 20) + '…'}
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-1.5">
                 <span className={'text-[10px] rounded-[2px] border px-1.5 py-px font-medium ' + sm.cls}>{sm.label}</span>
+                {c.deadline && c.deadline.state !== '已办结' && (
+                  <span className="text-[10px] text-muted-light font-mono">
+                    剩 {c.deadline.remaining_hours >= 0 ? c.deadline.remaining_hours.toFixed(0) : '-' + Math.abs(c.deadline.remaining_hours).toFixed(0)}h
+                  </span>
+                )}
                 <span className="text-[10px] text-muted-light font-mono ml-auto">{fmtTime(c.created_at)}</span>
               </div>
             </button>
@@ -395,6 +406,9 @@ function CaseDetail({ data, onChanged }: { data: CaseView; onChanged: () => void
 
       {/* 支柱二：急件分级与办理时限 */}
       {data.urgency && <UrgencyBanner urgency={data.urgency} />}
+
+      {/* 支柱五：办理时限倒计时 */}
+      {data.deadline && <DeadlineStrip deadline={data.deadline} />}
 
       {/* 未诉先办 · 苗头预警 */}
       {data.early_warning && <EarlyWarningBanner warning={data.early_warning} />}
@@ -890,6 +904,8 @@ function ReplyCard({ data, onChanged }: { data: CaseView; onChanged: () => void 
                 <span className="flex-1 min-w-0">{rd.disclaimer}</span>
               )}
             </div>
+            {/* 支柱四：答复合规审查（退回重办风险） */}
+            {data.reply_audit && <ReplyAuditBlock audit={data.reply_audit} />}
           </>
         )}
         {rd && s.editing && <EditArea draft={s.draft} setDraft={s.setDraft} />}
@@ -1009,6 +1025,83 @@ function GovernancePanel({ governance }: { governance: NonNullable<CaseView['gov
         )}
       </CardBody>
     </Card>
+  )
+}
+
+// ---- 支柱五：办理时限倒计时 ----
+function DeadlineStrip({ deadline }: { deadline: NonNullable<CaseView['deadline']> }) {
+  const tone =
+    deadline.state === '超期'
+      ? 'border-danger/40 bg-danger-subtle text-danger'
+      : deadline.state === '临期'
+        ? 'border-warning/40 bg-warning-subtle text-warning'
+        : deadline.state === '已办结'
+          ? 'border-border bg-surface-elevated text-muted'
+          : 'border-border bg-surface-elevated text-text-secondary'
+  const remain =
+    deadline.remaining_hours >= 0
+      ? `${deadline.remaining_hours.toFixed(1)} 小时`
+      : `已超期 ${Math.abs(deadline.remaining_hours).toFixed(1)} 小时`
+  return (
+    <div className={'mb-4 rounded-md border px-3 py-2 text-[11px] ' + tone}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="font-semibold">办理时限 · {deadline.state}</span>
+        <span>{deadline.label}</span>
+        <span className="font-mono">
+          到期 {deadline.due_at.replace('T', ' ')}（{deadline.mode}）
+        </span>
+        <span className="font-mono">剩余 {remain}</span>
+      </div>
+      {deadline.basis?.clause && (
+        <div className="mt-1 text-muted-light">
+          依据：{deadline.basis.name}——{deadline.basis.clause}
+        </div>
+      )}
+      {deadline.notes?.length > 0 && (
+        <div className="mt-0.5 text-muted-light">注：{deadline.notes.join('；')}</div>
+      )}
+      {deadline.supervision && <div className="mt-1 font-medium">{deadline.supervision}</div>}
+    </div>
+  )
+}
+
+// ---- 支柱四：答复合规审查 ----
+function ReplyAuditBlock({ audit }: { audit: NonNullable<CaseView['reply_audit']> }) {
+  const tone =
+    audit.risk_level === '高'
+      ? 'border-danger/40 bg-danger-subtle'
+      : audit.risk_level === '中'
+        ? 'border-warning/40 bg-warning-subtle'
+        : audit.risk_level === '低'
+          ? 'border-border bg-surface'
+          : 'border-success/30 bg-success-subtle'
+  const textTone = audit.risk_level === '高' ? 'text-danger' : audit.risk_level === '中' ? 'text-warning' : audit.risk_level === '低' ? 'text-muted' : 'text-success'
+  return (
+    <div className={'mt-3 rounded-md border p-2.5 ' + tone}>
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <span className={'text-xs font-semibold ' + textTone}>答复合规审查 · {audit.risk_level}</span>
+        <span className="text-[11px] text-text-secondary">{audit.risk_note}</span>
+      </div>
+      {audit.findings.length > 0 && (
+        <ul className="mt-1.5 space-y-1">
+          {audit.findings.map((f, i) => (
+            <li key={i} className="text-[11px] text-text-secondary">
+              <span className="font-medium">{f.label}</span>
+              {f.quote && f.quote !== '未回应诉求主题' && (
+                <span className="text-muted">（原文：{f.quote.length > 24 ? f.quote.slice(0, 24) + '…' : f.quote}）</span>
+              )}
+              <span className="text-muted-light"> → {f.suggestion}</span>
+              {f.source === 'LLM 复核' && <span className="ml-1 text-[10px] text-muted-light">[模型复核]</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {audit.basis?.name && (
+        <div className="mt-1.5 text-[10px] text-muted-light border-t border-border pt-1.5">
+          依据：{audit.basis.name}——{audit.basis.clause}
+        </div>
+      )}
+    </div>
   )
 }
 

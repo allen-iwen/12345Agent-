@@ -5,11 +5,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any
 
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 PENDING_MARKS = ("待确认", "无", "不详", "未知", "")
 
@@ -114,6 +117,29 @@ def run_qc(case: Any) -> list[dict]:
             "passed": not bad_refs,
             "detail": "" if not bad_refs else "不在政策库中的引用：" + "；".join(bad_refs),
         })
+        # 支柱四：答复合规审查（确定性规则主判，可选 LLM 语义复核）
+        try:
+            from app.services import reply_audit
+
+            audit = reply_audit.audit(
+                rd.reply_text,
+                rd.policy_refs or [],
+                {
+                    "raw_text": getattr(case, "raw_text", "") or "",
+                    "event_description": (wo.event_description if wo is not None else ""),
+                    "urgency": getattr(case, "urgency", None),
+                    "manual_action": (u.manual_action if u is not None else None),
+                },
+            )
+            risk = audit["risk_level"]
+            labels = [f["label"] for f in audit.get("findings", [])][:3]
+            checks.append({
+                "item": "答复合规审查（退回重办风险）",
+                "passed": risk in ("无", "低"),
+                "detail": "" if risk in ("无", "低") else f"风险 {risk}：" + "；".join(labels),
+            })
+        except Exception:  # noqa: BLE001 - 合规审查失败不影响其他检查项
+            logger.warning("reply audit in qc failed", exc_info=True)
 
     return checks
 

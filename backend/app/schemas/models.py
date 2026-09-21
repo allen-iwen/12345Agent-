@@ -142,6 +142,14 @@ class Case(BaseModel):
         default=None,
         description="支柱三：诉求治理建议包（重复诉求督办/并案预警/退回风险，只读）",
     )
+    reply_audit: Optional[dict] = Field(
+        default=None,
+        description="支柱四：答复合规审查（退回重办风险等级/问题清单/修改建议，只读）",
+    )
+    deadline: Optional[dict] = Field(
+        default=None,
+        description="支柱五：办理时限倒计时（到期时刻/剩余时长/临期超期状态/依据条款，只读）",
+    )
     agent_seconds: Optional[int] = Field(
         default=None,
         description="智能体节点累计耗时（秒，来自白盒轨迹，只读）",
