@@ -31,6 +31,7 @@ const COLUMN_HINT: Record<string, string> = {
 
 export function BoardPage() {
   const { data, isLoading, mutate } = useSWR(['board'], () => api.board(), { refreshInterval: 15000 })
+  const { data: deadlineStats } = useSWR(['deadline-stats'], () => api.deadlineStats(), { refreshInterval: 30000 })
   const [role, setRole] = useState<string>('dispatcher')
   const [actor, setActor] = useState<string>('派单员（演示）')
   const [busy, setBusy] = useState<string>('')
@@ -91,6 +92,26 @@ export function BoardPage() {
         )}
         {error && <div className="mt-2 text-[11px] text-danger">{error}</div>}
       </header>
+
+      {/* 督办面板：时限分布 + 最紧迫案件（数据来自 /api/stats/deadlines） */}
+      {deadlineStats && (
+        <div className="shrink-0 border-b border-border bg-surface px-5 py-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+            <span className="font-medium text-text-secondary">时限督办</span>
+            <span className="text-muted">共 {deadlineStats.total} 件</span>
+            <span className="text-success">正常 {deadlineStats.buckets['正常'] ?? 0}</span>
+            <span className="text-warning">临期 {deadlineStats.buckets['临期'] ?? 0}</span>
+            <span className="text-danger">超期 {deadlineStats.buckets['超期'] ?? 0}</span>
+            <span className="text-muted">已办结 {deadlineStats.buckets['已办结'] ?? 0}</span>
+            {deadlineStats.urgent?.length > 0 && (
+              <span className="text-muted-light truncate">
+                最紧迫：{deadlineStats.urgent.slice(0, 3).map((u) => `${u.title}（${u.state}）`).join('；')}
+              </span>
+            )}
+            <span className="ml-auto text-muted-light">{deadlineStats.note}</span>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden bg-surface">
         {isLoading && !data ? (

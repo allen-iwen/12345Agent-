@@ -3,6 +3,23 @@ const BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 
 export type SectionStatus = 'pending' | 'approved' | 'modified'
 
+export interface WikiEntry {
+  slug: string
+  title: string
+  category: string
+  body_md: string
+  tags: string[]
+  version: number
+  status: 'draft' | 'published'
+  author: string
+  reviewer: string
+  source_case_id: string
+  created_at: string
+  updated_at: string
+  excerpt?: string
+  revisions?: { id: number; slug: string; version: number; title: string; editor: string; note: string; created_at: string }[]
+}
+
 export interface CaseView {
   case_id: string
   raw_text: string
@@ -314,6 +331,50 @@ export const api = {
         role: opts.role ?? 'dispatcher',
         expected_from: opts.expectedFrom ?? null,
       }),
+    }),
+  // 统计（交叉复核 / 时限督办）
+  reviewStats: () => req<{
+    config: { enabled: boolean; model: string; base_url: string; note: string }
+    checked_cases: number
+    agreed: number
+    diverged: number
+    agreement_rate: number | null
+    divergence_rate: number | null
+    human_gated: number
+    human_gate_rate: number | null
+    divergence_samples: { case_id: string; title: string; primary: string; secondary: string; secondary_name: string; secondary_model: string }[]
+    note: string
+  }>('/api/stats/review'),
+  deadlineStats: () => req<{
+    total: number
+    buckets: Record<string, number>
+    urgent: { case_id: string; title: string; level: string; state: string; due_at: string; remaining_hours: number; supervision: string }[]
+    note: string
+  }>('/api/stats/deadlines'),
+  // 知识词条（wiki）
+  wikiList: (params: { category?: string; status?: string; q?: string } = {}) => {
+    const qs = new URLSearchParams()
+    if (params.category) qs.set('category', params.category)
+    if (params.status) qs.set('status', params.status)
+    if (params.q) qs.set('q', params.q)
+    const suffix = qs.toString() ? `?${qs}` : ''
+    return req<{
+      counts: { by_status: Record<string, number>; by_category: Record<string, number>; total: number }
+      categories: string[]
+      items: WikiEntry[]
+    }>(`/api/wiki${suffix}`)
+  },
+  wikiGet: (slug: string) => req<WikiEntry>(`/api/wiki/${slug}`),
+  wikiSave: (payload: { slug: string; title: string; body_md: string; category: string; tags?: string[]; note?: string }) =>
+    req<{ ok: boolean; slug: string; version: number }>('/api/wiki', { method: 'POST', body: JSON.stringify(payload) }),
+  wikiPublish: (slug: string, note = '') =>
+    req<{ ok: boolean; slug: string; status: string }>(`/api/wiki/${slug}/publish`, { method: 'POST', body: JSON.stringify({ note }) }),
+  wikiUnpublish: (slug: string) =>
+    req<{ ok: boolean; slug: string; status: string }>(`/api/wiki/${slug}/unpublish`, { method: 'POST' }),
+  wikiDistill: (caseId: string, category = '案例经验') =>
+    req<{ ok: boolean; slug: string; version: number; preview: string }>(`/api/wiki/distill/${caseId}`, {
+      method: 'POST',
+      body: JSON.stringify({ category }),
     }),
   listCases: () => req<CaseView[]>('/api/cases?limit=30'),
   getCase: (id: string) => req<CaseView>(`/api/cases/${id}`),

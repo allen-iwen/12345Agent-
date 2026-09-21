@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react'
 import useSWR from 'swr'
 import { ChevronRight, FileUp, Loader2, Search, Trash2 } from 'lucide-react'
+import { WikiPanel } from '../components/WikiPanel'
 import { api, type DepartmentInfo } from '../lib/api'
 import { Badge, Button, Card, CardBody, CardHeader, CardTitle, Spinner } from '../ui'
 
@@ -69,6 +70,11 @@ export function KnowledgePage() {
 
       {/* 政策依据库 */}
       <PolicyPanel />
+
+      {/* 知识词条（口径层） */}
+      <div className="mb-5">
+        <WikiPanel />
+      </div>
 
       {/* 列表 */}
       {isLoading && (
