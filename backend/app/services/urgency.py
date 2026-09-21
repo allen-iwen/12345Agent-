@@ -88,25 +88,35 @@ def assess(
     if urgent_flag and _LEVEL_ORDER.get(best["level"], 0) < 1:
         best["level"], best["label"] = "紧急", "紧急件（理解节点判定紧急）"
 
-    # 图片证据升级：视觉模型判定存在人身安全隐患时，等级不低于特急
-    vision_hazard = [
-        v for v in (vision_signals or [])
-        if v and v.get("hazard") and v.get("severity") in ("特急", "紧急")
-    ]
-    if vision_hazard and _LEVEL_ORDER.get(best["level"], 0) < _LEVEL_ORDER.get(
-        max((v.get("severity") for v in vision_hazard), key=lambda x: _LEVEL_ORDER.get(x, 0)), 0
-    ):
-        top = max((v.get("severity") for v in vision_hazard), key=lambda x: _LEVEL_ORDER.get(x, 0))
-        lv = next((x for x in rules.get("levels", []) if x["level"] == top), None)
-        best = {
-            "level": top,
-            "label": (lv or {}).get("label", top) + "（图片证据判定）",
-            "limit_hint": (lv or {}).get("limit_hint", ""),
-            "actions": (lv or {}).get("actions", []),
-            "signals": best.get("signals", []) + [
-                "图片证据：" + "、".join(v.get("hazard_type", "") for v in vision_hazard)
-            ],
-        }
+    # 图片证据升级：按「险种定级表」确定等级（不采用模型自报 severity——实测其跨次不稳定），
+    # 仅在险种无法映射时回退到模型分的 severity。
+    hazard_levels = rules.get("hazard_levels", {})
+    vision_levels: list[tuple[str, str]] = []  # (险种, 等级)
+    for v in (vision_signals or []):
+        if not (v and v.get("hazard")):
+            continue
+        htype = str(v.get("hazard_type") or "").strip()
+        level = hazard_levels.get(htype) or v.get("severity") or "一般"
+        if level not in _LEVEL_ORDER:
+            level = "一般"
+        vision_levels.append((htype or "其他", level))
+
+    if vision_levels:
+        top_type, top_level = max(vision_levels, key=lambda x: _LEVEL_ORDER.get(x[1], 0))
+        if _LEVEL_ORDER.get(top_level, 0) > _LEVEL_ORDER.get(best["level"], 0):
+            lv = next((x for x in rules.get("levels", []) if x["level"] == top_level), None)
+            best = {
+                "level": top_level,
+                "label": (lv or {}).get("label", top_level) + "（图片证据定级）",
+                "limit_hint": (lv or {}).get("limit_hint", ""),
+                "actions": (lv or {}).get("actions", []),
+                "signals": best.get("signals", []) + [f"图片证据：{top_type}（按险种定级）"],
+            }
+        else:
+            # 险种等级未超过文本判定，仅补充可见证据说明
+            best["signals"] = best.get("signals", []) + [
+                "图片证据：" + "、".join(t for t, _ in vision_levels)
+            ]
 
     legal = rules.get("legal_basis", {})
     basis = {

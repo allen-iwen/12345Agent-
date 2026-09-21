@@ -34,13 +34,28 @@ SYSTEM = """你是芜湖市12345热线的「图片证据分析员」。市民上
  "severity": "特急|紧急|一般", "summary": "一句话客观描述", 
  "elements": {"可见对象": "", "地点线索": "", "规模范围": ""}, "confidence": 0.0}
 
+【隐患类型判定优先级】多种隐患并存时，按人身安全优先：
+消防通道堵塞 ＞ 电线坠落 ＞ 井盖缺失 ＞ 违章建筑/危房 ＞ 道路破损/积水 ＞ 垃圾堆积 ＞ 占道经营 ＞ 绿化损坏。
+例：楼道/出入口被成堆垃圾完全堵死 → 判「消防通道堵塞」（而非垃圾堆积）。
+
+【严重程度判据】（按情境对号入座，不要凭感觉给中间值）
+- 特急：存在人身伤亡风险或需立即处置。情境示例：
+  井盖缺失致行人坠落、电线坠落或线缆低垂可触及、消防/疏散通道被完全堵塞、
+  燃气泄漏迹象、危房或结构随时可能坍塌。
+- 紧急：无即时人身危险，但影响公共秩序、环境卫生或多人正常生活。情境示例：
+  成片/大量垃圾堆积或垃圾外溢、占道经营阻碍人行通行、私搭乱建存在结构或消防间距隐患、
+  道路大面积破损或塌陷影响车辆通行、路面积水没及行人。
+- 一般：局部、轻微，不影响安全与通行。情境示例：
+  小面积路面破损、零星少量垃圾、单一绿化损坏、仅询问或反映但画面无明显问题。
+
 约束（必须遵守）：
 1. 只描述图片中确实可见的内容，不推测拍摄者身份、不判断地点真伪、不脑补画面外信息；
 2. 严禁输出人脸特征、车牌号、门牌号、姓名、手机号等任何个人信息；
-3. severity 仅在存在人身安全隐患时给「特急」（如井盖缺失、电线坠落、燃气泄漏迹象、消防通道堵塞、危房），
-   影响面较大但无即时人身危险给「紧急」，其余给「一般」；
+3. 隐患细节较小但确实存在时（如低垂线缆、被堵的疏散门），应判为隐患而不是"未见隐患"，
+   并在 summary 中指出可见依据；确实没有可见依据时才判 hazard=false；
 4. 图片与诉求无关、或未发现隐患时：hazard=false, hazard_type="无隐患", severity="一般"；
-5. confidence 表示你对判断的把握（0~1）。"""
+5. confidence 表示你对判断的把握（0~1）；
+6. **输出必须是可解析的 JSON：字符串内部禁止出现英文双引号，需要引用招牌、店名等文字时一律用「」包裹。**"""
 
 
 def _provider_cfg(name: str) -> dict:
@@ -81,19 +96,29 @@ def _data_url(path: Path) -> str:
 
 
 def _parse_json(content: str) -> dict:
-    """宽松解析：优先复用 llm 的解析器，失败则取首个 JSON 对象。"""
+    """宽松解析：优先复用 llm 的解析器，失败则取首个 JSON 对象，再失败则修复串内引号。"""
     try:
         from app.services import llm
 
         return llm._extract_json(content)  # noqa: SLF001 - 复用既有宽松解析
     except Exception:  # noqa: BLE001
-        m = re.search(r"\{.*\}", content, re.S)
-        if m:
-            try:
-                return json.loads(m.group(0))
-            except json.JSONDecodeError:
-                pass
-    raise ValueError(f"视觉模型输出无法解析为 JSON：{content[:200]}")
+        pass
+    m = re.search(r"\{.*\}", content, re.S)
+    if not m:
+        raise ValueError(f"视觉模型输出无法解析为 JSON：{content[:200]}")
+    raw = m.group(0)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+    # 修复常见问题：字符串值内部出现未转义的英文双引号（模型引用店名/招牌时高发）
+    # 策略：把出现在中文或字母之间、且两侧无 JSON 语法意义的引号替换为「」
+    repaired = re.sub(r'(?<=[\u4e00-\u9fa5A-Za-z0-9])"(?=[\u4e00-\u9fa5A-Za-z0-9])', "」", raw)
+    repaired = re.sub(r'(?<=[\u4e00-\u9fa5])」(?=[^,}\]])', "」", repaired)
+    try:
+        return json.loads(repaired)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"视觉模型输出无法解析为 JSON（已尝试修复）：{exc}；原文：{content[:200]}") from exc
 
 
 def _call(cfg: dict, data_url: str, context_text: str) -> dict:

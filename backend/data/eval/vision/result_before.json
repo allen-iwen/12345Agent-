@@ -1,0 +1,110 @@
+{
+  "samples": 16,
+  "model": "MiniMax-M3",
+  "type_accuracy": 0.75,
+  "severity_accuracy": 0.375,
+  "hazard_agreement": 0.8125,
+  "avg_latency_ms": 3653.3,
+  "mismatches": [
+    {
+      "file": "pothole_road_01.jpg",
+      "expected_type": "道路破损",
+      "predicted_type": "道路破损",
+      "expected_severity": "一般",
+      "predicted_severity": "紧急",
+      "confidence": 0.95,
+      "summary": "城市道路中央出现明显塌陷和大面积沥青破损，坑槽内可见积水，存在交通安全隐患。",
+      "note": "沥青路面坑洼破损，车辆通行颠簸，暂无即时人身危险"
+    },
+    {
+      "file": "pothole_road_02.jpg",
+      "expected_type": "道路破损",
+      "predicted_type": "道路破损",
+      "expected_severity": "一般",
+      "predicted_severity": "紧急",
+      "confidence": 0.9,
+      "summary": "未铺设柏油的泥土道路大面积坑洼不平，多处积水积泥，存在通行安全隐患。",
+      "note": "土石路面遍布坑洼与积水，车辆通行困难"
+    },
+    {
+      "file": "garbage_dump_01.jpg",
+      "expected_type": "垃圾堆积",
+      "predicted_type": "垃圾堆积",
+      "expected_severity": "紧急",
+      "predicted_severity": "一般",
+      "confidence": 0.92,
+      "summary": "林地边缘露天堆放大量废旧家具、家电及生活垃圾，包括床垫、木板、塑料桶和黑色垃圾袋等，散落面积较大。",
+      "note": "林地被非法倾倒生活垃圾与杂物，影响面较大但无即时人身危险"
+    },
+    {
+      "file": "garbage_dump_02.jpg",
+      "expected_type": "垃圾堆积",
+      "predicted_type": "消防通道堵塞",
+      "expected_severity": "紧急",
+      "predicted_severity": "特急",
+      "confidence": 0.9,
+      "summary": "某楼道或通道入口被大量装满废弃物的塑料袋和纸箱堆积至顶部，完全堵塞通道出口，存在严重消防安全隐患。",
+      "note": "小区垃圾收集点垃圾外溢堆积，环境卫生问题突出"
+    },
+    {
+      "file": "garbage_dump_03.jpg",
+      "expected_type": "垃圾堆积",
+      "predicted_type": "垃圾堆积",
+      "expected_severity": "紧急",
+      "predicted_severity": "一般",
+      "confidence": 0.95,
+      "summary": "绿色围挡前堆放大量黑色垃圾袋，已堆叠成片，影响市容卫生。",
+      "note": "禁止倾倒标识旁堆放大量垃圾袋，涉嫌非法倾倒"
+    },
+    {
+      "file": "illegal_construction_01.jpg",
+      "expected_type": "违章建筑",
+      "predicted_type": "无隐患",
+      "expected_severity": "紧急",
+      "predicted_severity": "一般",
+      "confidence": 0.55,
+      "summary": "密集的铁皮棚户区航拍俯视图，房屋密集相连，屋顶状况陈旧但未见明显的即时危险（如坍塌、火灾、电线坠落等）。",
+      "note": "密集自建、私搭乱建棚户区，建筑间距与消防间距不足"
+    },
+    {
+      "file": "illegal_construction_02.jpg",
+      "expected_type": "违章建筑",
+      "predicted_type": "违章建筑",
+      "expected_severity": "紧急",
+      "predicted_severity": "一般",
+      "confidence": 0.72,
+      "summary": "户外可见由生锈铁皮（瓦楞板和波纹铁板）拼搭而成的简易棚房，结构简陋破损，位于开阔泥土地带，疑似违建或临时搭建的破旧构筑物。",
+      "note": "简易棚屋私搭乱建，缺规划许可与安全防护"
+    },
+    {
+      "file": "vendor_sidewalk_01.jpg",
+      "expected_type": "占道经营",
+      "predicted_type": "占道经营",
+      "expected_severity": "紧急",
+      "predicted_severity": "一般",
+      "confidence": 0.85,
+      "summary": "街边店铺将食品摊位、展板及营业设备延伸至人行道上经营，占用公共通行空间。",
+      "note": "流动餐车长期占据人行道，行人被迫绕行机动车道"
+    },
+    {
+      "file": "fire_lane_blocked_01.jpg",
+      "expected_type": "消防通道堵塞",
+      "predicted_type": "无隐患",
+      "expected_severity": "特急",
+      "predicted_severity": "一般",
+      "confidence": 0.85,
+      "summary": "便利店内部场景，货架上陈列袋装零食，中间堆放用塑料膜包裹的方形面食类货物，旁有手推车和置物架，未见明显安全隐患。",
+      "note": "超市疏散出口（安全出口）被货物托盘、手推车与梯子完全堵塞，火灾时无法疏散"
+    },
+    {
+      "file": "fallen_wire_02.jpg",
+      "expected_type": "电线坠落",
+      "predicted_type": "无隐患",
+      "expected_severity": "特急",
+      "predicted_severity": "一般",
+      "confidence": 0.82,
+      "summary": "街道场景，可见道路护栏、路灯、电线杆、绿化树木及石砌建筑，未见明显安全隐患。",
+      "note": "电线杆严重倾斜、线缆被拉紧并低垂至人行道上方，高度不足且随时可能坠落，触电风险高"
+    }
+  ]
+}

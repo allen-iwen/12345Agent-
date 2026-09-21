@@ -1,0 +1,100 @@
+{
+  "samples": 16,
+  "model": "MiniMax-M3",
+  "type_accuracy": 0.9375,
+  "severity_accuracy": 0.5,
+  "hazard_agreement": 1.0,
+  "avg_latency_ms": 4137.7,
+  "mismatches": [
+    {
+      "file": "pothole_road_01.jpg",
+      "expected_type": "道路破损",
+      "predicted_type": "道路破损",
+      "expected_severity": "一般",
+      "predicted_severity": "紧急",
+      "confidence": 0.9,
+      "summary": "机动车道路面出现明显的大面积破损和坑槽，沥青层开裂下沉，坑内有积水，对过往车辆通行安全构成影响。",
+      "note": "沥青路面坑洼破损，车辆通行颠簸，暂无即时人身危险"
+    },
+    {
+      "file": "pothole_road_02.jpg",
+      "expected_type": "道路破损",
+      "predicted_type": "道路破损",
+      "expected_severity": "一般",
+      "predicted_severity": "紧急",
+      "confidence": 0.85,
+      "summary": "未硬化的泥土道路大面积坑洼不平，多处积水形成水洼，路况恶劣影响车辆和行人通行。",
+      "note": "土石路面遍布坑洼与积水，车辆通行困难"
+    },
+    {
+      "file": "pothole_road_03.jpg",
+      "expected_type": "道路破损",
+      "predicted_type": "道路破损",
+      "expected_severity": "一般",
+      "predicted_severity": "紧急",
+      "confidence": 0.88,
+      "summary": "乡村道路沥青路面大面积龟裂、网裂，多处坑洼和补丁痕迹并存，影响车辆正常通行。",
+      "note": "沥青路面网裂、龟裂并伴有局部破损"
+    },
+    {
+      "file": "garbage_dump_02.jpg",
+      "expected_type": "垃圾堆积",
+      "predicted_type": "消防通道堵塞",
+      "expected_severity": "紧急",
+      "predicted_severity": "紧急",
+      "confidence": 0.75,
+      "summary": "厢式货车车厢内装满大量塑料袋装垃圾及纸箱，堆放过满存在散落风险，若该车辆停靠于通道处将构成消防/通行障碍。",
+      "note": "小区垃圾收集点垃圾外溢堆积，环境卫生问题突出"
+    },
+    {
+      "file": "illegal_construction_02.jpg",
+      "expected_type": "违章建筑",
+      "predicted_type": "违章建筑",
+      "expected_severity": "紧急",
+      "predicted_severity": "一般",
+      "confidence": 0.78,
+      "summary": "可见用锈蚀波纹铁皮和木板搭建的简易棚屋，结构简陋、锈蚀破损，位于乡野空地边缘，未见明显坍塌或紧迫危险。",
+      "note": "简易棚屋私搭乱建，缺规划许可与安全防护"
+    },
+    {
+      "file": "vendor_sidewalk_01.jpg",
+      "expected_type": "占道经营",
+      "predicted_type": "占道经营",
+      "expected_severity": "紧急",
+      "predicted_severity": "一般",
+      "confidence": 0.72,
+      "summary": "店招为「魔王炸雞排」与「橘色泰式奶茶」的食品摊位设在骑楼下方人行道上摆放，占用部分人行通道，但未完全阻断通行。",
+      "note": "流动餐车长期占据人行道，行人被迫绕行机动车道"
+    },
+    {
+      "file": "fire_lane_blocked_01.jpg",
+      "expected_type": "消防通道堵塞",
+      "predicted_type": "消防通道堵塞",
+      "expected_severity": "特急",
+      "predicted_severity": "紧急",
+      "confidence": 0.88,
+      "summary": "便利店内一扇标有「安全出口」标识的疏散门被成垛的纸箱货物和手推车完全遮挡，疏散通道存在被堵塞隐患。",
+      "note": "超市疏散出口（安全出口）被货物托盘、手推车与梯子完全堵塞，火灾时无法疏散"
+    },
+    {
+      "file": "fallen_wire_02.jpg",
+      "expected_type": "电线坠落",
+      "predicted_type": "电线坠落",
+      "expected_severity": "特急",
+      "predicted_severity": "紧急",
+      "confidence": 0.82,
+      "summary": "路边电杆明显向道路一侧倾斜，杆上多条线缆低垂松垮，存在坠落或影响通行的安全隐患",
+      "note": "电线杆严重倾斜、线缆被拉紧并低垂至人行道上方，高度不足且随时可能坠落，触电风险高"
+    },
+    {
+      "file": "fallen_wire_03.jpg",
+      "expected_type": "电线坠落",
+      "predicted_type": "电线坠落",
+      "expected_severity": "特急",
+      "predicted_severity": "紧急",
+      "confidence": 0.92,
+      "summary": "电线杆上缠绕堆积大量杂乱线缆，部分线缆低垂散落，存在脱落及触电安全隐患。",
+      "note": "架空线缆在电杆上严重缠绕并低垂下垂，高度不足，存在触电与坠落风险"
+    }
+  ]
+}
