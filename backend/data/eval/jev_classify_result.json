@@ -1,0 +1,18 @@
+{
+  "samples": 18,
+  "model": "D:\\workspace\\12345工单热线\\12345agent\\backend\\storage\\models\\_ms_cache\\models\\convaiinnovations--laya\\snapshots\\master\\multilingual",
+  "accuracy": 0.2222,
+  "avg_latency_ms": 2546.0,
+  "input_tokens": 0,
+  "cost_usd": 0.0,
+  "gate_distribution": {
+    "auto": 1,
+    "confirm": 2,
+    "human": 15
+  },
+  "llm_baseline": {
+    "accuracy": 1.0,
+    "note": "提示词链 + 生成模型（含 12 类辨析目录），LOO 100%"
+  },
+  "errors": []
+}

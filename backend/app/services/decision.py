@@ -37,6 +37,10 @@ logger = logging.getLogger(__name__)
 
 def _cfg() -> dict:
     s = get_settings()
+    if s.decision_provider == "laya":
+        # 本地开源 System One 决策模型（Apache 2.0）：非自回归、单次前向、CPU 可跑
+        return {"provider": "laya", "model": s.decision_model_path or "convaiinnovations/laya",
+                "subfolder": s.decision_laya_subfolder, "device": s.decision_laya_device}
     if s.decision_provider == "vercel":
         # Vercel AI Gateway：模型 id 形如 typesafe-ai/jev（网关按模型路由到 TypeSafe）
         return {"provider": "vercel", "base_url": "https://ai-gateway.vercel.sh",
@@ -49,6 +53,13 @@ def _cfg() -> dict:
 
 def available() -> bool:
     cfg = _cfg()
+    if cfg.get("provider") == "laya":
+        try:
+            import laya  # noqa: F401
+
+            return True
+        except ImportError:
+            return False
     return bool(cfg.get("api_key") and cfg.get("base_url"))
 
 
@@ -95,9 +106,104 @@ def gate(confidence: float | None) -> str:
     return "confirm"
 
 
+# ---------------- 本地开源决策模型 laya（Apache 2.0）----------------
+# 与 Jev 同类：非自回归 System 1，单次前向返回带类型的校准概率；权重开源、可离线、$0 成本。
+# 中文场景必须用 multilingual 检查点（根检查点仅英文，非拉丁文字会崩）。
+
+_laya_agent = None
+_laya_error = ""
+_laya_lock = __import__("threading").Lock()
+
+
+def _get_laya(cfg: dict):
+    global _laya_agent, _laya_error
+    if _laya_agent is not None or _laya_error:
+        return _laya_agent
+    with _laya_lock:
+        if _laya_agent is not None or _laya_error:
+            return _laya_agent
+        try:
+            import laya
+
+            t0 = __import__("time").monotonic()
+            path = cfg.get("model") or "convaiinnovations/laya"
+            sub = cfg.get("subfolder") or "multilingual"
+            try:
+                _laya_agent = laya.load(path)  # 本地目录
+            except Exception:  # noqa: BLE001 - 非本地路径则按仓库 + 子目录加载
+                _laya_agent = laya.load(path, subfolder=sub)
+            # 官方「Honest Limits」：高基数 Choice 需提高每选项 token 预算，否则选项文本互相不可分
+            s = get_settings()
+            try:
+                if s.decision_laya_head_max_len:
+                    _laya_agent.cfg["head_max_len"] = s.decision_laya_head_max_len
+                if s.decision_laya_max_len:
+                    _laya_agent.cfg["max_len"] = s.decision_laya_max_len
+            except Exception:  # noqa: BLE001 - 配置字段不可写则忽略
+                pass
+            logger.info("laya 决策模型已加载（%s/%s，%.0fs，head_max_len=%s）",
+                        path, sub, __import__("time").monotonic() - t0,
+                        getattr(_laya_agent, "cfg", {}).get("head_max_len"))
+        except Exception as exc:  # noqa: BLE001
+            _laya_error = str(exc)
+            logger.warning("laya 加载失败：%s", exc)
+    return _laya_agent
+
+
+def warm() -> None:
+    """后台线程预热本地决策模型（首次加载约 30–40s，避免首个请求卡顿）。"""
+    import threading
+
+    cfg = _cfg()
+    if cfg.get("provider") == "laya":
+        threading.Thread(target=_get_laya, args=(cfg,), daemon=True, name="laya-warmup").start()
+
+
+def _ask_laya(state: str | dict | list, questions: dict[str, dict], cfg: dict) -> dict:
+    if not questions:
+        return {"available": False, "note": "questions 为空"}
+    agent = _get_laya(cfg)
+    if agent is None:
+        return {"available": False, "note": f"laya 模型不可用：{_laya_error}"}
+    try:
+        raw = agent.predict(state, questions)
+    except Exception as exc:  # noqa: BLE001 - 调用失败回退
+        logger.warning("laya 推理失败：%s", exc)
+        return {"available": False, "note": f"laya 推理失败：{exc}"}
+
+    norm: dict[str, dict] = {}
+    for qid, a in (raw.get("answers") or {}).items():
+        if not isinstance(a, dict):
+            continue
+        qtype = a.get("type")
+        if qtype == "noul":
+            norm[qid] = {"type": "noul", "value": a.get("noul"), "confidence": a.get("confidence"),
+                         "gate": gate(None)}  # noul 无独立 confidence，由调用方按概率设阈
+        elif qtype == "choice":
+            norm[qid] = {"type": "choice", "value": a.get("choice"),
+                         "probabilities": a.get("probabilities") or {},
+                         "confidence": a.get("confidence"), "gate": gate(a.get("confidence"))}
+        elif qtype == "score":
+            norm[qid] = {"type": "score", "value": a.get("score"), "legend": a.get("legend") or {},
+                         "probabilities": a.get("probabilities") or {},
+                         "confidence": a.get("confidence"), "gate": gate(a.get("confidence"))}
+    return {
+        "available": True,
+        "provider": "laya",
+        "model": f"laya-{cfg.get('subfolder') or 'multilingual'}",
+        "requested_model": cfg.get("model"),
+        "answers": norm,
+        "usage": {},
+        "cost_usd": 0.0,  # 自托管开源模型：调用成本为 0
+        "routing": raw.get("routing"),
+    }
+
+
 def ask(state: str | dict | list, questions: dict[str, dict], model: str | None = None) -> dict:
     """发起一次 System One 评估；失败或未配置时返回 available=False（调用方回退）。"""
     cfg = _cfg()
+    if cfg.get("provider") == "laya":
+        return _ask_laya(state, questions, cfg)
     if not (cfg.get("api_key") and cfg.get("base_url")):
         return {"available": False, "note": "未配置决策模型（DECISION_PROVIDER / DECISION_API_KEY）"}
     if not questions:

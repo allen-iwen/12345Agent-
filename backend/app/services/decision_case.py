@@ -44,7 +44,7 @@ def category_criteria() -> dict[str, str]:
             parts.append("典型：" + "、".join(c["typical"][:6]))
         if c.get("contrast"):
             parts.append(c["contrast"])
-        out[c["code"]] = "；".join(parts)[:300]
+        out[c["code"]] = "；".join(parts)[:500]
     out["other"] = "以上 12 类均不适用，或信息不足无法归入任何类别"
     return out
 

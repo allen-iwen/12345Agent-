@@ -1,0 +1,198 @@
+{
+  "provider": "laya",
+  "model": "D:\\workspace\\12345工单热线\\12345agent\\backend\\storage\\models\\_ms_cache\\models\\convaiinnovations--laya\\snapshots\\master\\multilingual",
+  "hazard": {
+    "accuracy_at_0.5": 0.5833,
+    "pos_mean": 0.9221,
+    "neg_mean": 0.6989,
+    "items": [
+      {
+        "text": "小区门口燃气管道破裂，能闻到很浓的燃气味，旁边就是居民楼",
+        "expected": true,
+        "p": 0.9626
+      },
+      {
+        "text": "路中间井盖没了，晚上有行人差点掉下去",
+        "expected": true,
+        "p": 0.909
+      },
+      {
+        "text": "大风把电线刮断垂到人行道上，有人经过可能会触电",
+        "expected": true,
+        "p": 0.8753
+      },
+      {
+        "text": "楼道里电动车飞线充电，插排就挂在楼梯口",
+        "expected": true,
+        "p": 0.8794
+      },
+      {
+        "text": "这栋楼外墙开裂严重，随时可能脱落砸到人",
+        "expected": true,
+        "p": 0.9733
+      },
+      {
+        "text": "超市疏散通道被货物托盘完全堵死，火灾时跑不出去",
+        "expected": true,
+        "p": 0.9332
+      },
+      {
+        "text": "楼下烧烤店油烟飘进家里，晚上吵得睡不着",
+        "expected": false,
+        "p": 0.9607
+      },
+      {
+        "text": "我们小区停水两天了，物业也不管",
+        "expected": false,
+        "p": 0.6479
+      },
+      {
+        "text": "想咨询一下个体工商户营业执照怎么办",
+        "expected": false,
+        "p": 0.7453
+      },
+      {
+        "text": "路边树长得太密，挡了路灯的光",
+        "expected": false,
+        "p": 0.6125
+      },
+      {
+        "text": "小区垃圾分类点太远，扔垃圾不方便",
+        "expected": false,
+        "p": 0.3466
+      },
+      {
+        "text": "路口人行道地砖有点松动，踩上去有响动",
+        "expected": false,
+        "p": 0.8805
+      }
+    ]
+  },
+  "compliance": {
+    "violations": [
+      {
+        "over": 1.8355,
+        "addr": 0.6961,
+        "priv": 0.9547,
+        "available": true
+      },
+      {
+        "over": 1.3988,
+        "addr": 0.0303,
+        "priv": 0.1727,
+        "available": true
+      },
+      {
+        "over": 1.6942,
+        "addr": 0.19,
+        "priv": 0.5922,
+        "available": true
+      },
+      {
+        "over": 1.3056,
+        "addr": 0.0473,
+        "priv": 0.9849,
+        "available": true
+      },
+      {
+        "over": 1.4118,
+        "addr": 0.0373,
+        "priv": 0.6279,
+        "available": true
+      },
+      {
+        "over": 1.3152,
+        "addr": 0.6734,
+        "priv": 0.3475,
+        "available": true
+      },
+      {
+        "over": 1.4702,
+        "addr": 0.3353,
+        "priv": 0.4819,
+        "available": true
+      },
+      {
+        "over": 1.425,
+        "addr": 0.8153,
+        "priv": 0.7852,
+        "available": true
+      },
+      {
+        "over": 1.6209,
+        "addr": 0.9089,
+        "priv": 0.4126,
+        "available": true
+      },
+      {
+        "over": 1.4135,
+        "addr": 0.0069,
+        "priv": 0.9861,
+        "available": true
+      }
+    ],
+    "compliant": [
+      {
+        "over": 1.6267,
+        "addr": 0.0261,
+        "priv": 0.608,
+        "available": true
+      },
+      {
+        "over": 1.6354,
+        "addr": 0.0302,
+        "priv": 0.7584,
+        "available": true
+      },
+      {
+        "over": 1.7504,
+        "addr": 0.6097,
+        "priv": 0.7653,
+        "available": true
+      },
+      {
+        "over": 1.5676,
+        "addr": 0.0055,
+        "priv": 0.0663,
+        "available": true
+      },
+      {
+        "over": 1.6001,
+        "addr": 0.2756,
+        "priv": 0.0945,
+        "available": true
+      },
+      {
+        "over": 1.7394,
+        "addr": 0.0108,
+        "priv": 0.0001,
+        "available": true
+      },
+      {
+        "over": 1.4223,
+        "addr": 0.0428,
+        "priv": 0.0061,
+        "available": true
+      },
+      {
+        "over": 1.5627,
+        "addr": 0.001,
+        "priv": 0.0084,
+        "available": true
+      },
+      {
+        "over": 1.6901,
+        "addr": 0.2744,
+        "priv": 0.252,
+        "available": true
+      },
+      {
+        "over": 1.5519,
+        "addr": 0.0556,
+        "priv": 0.4924,
+        "available": true
+      }
+    ]
+  },
+  "avg_latency_ms": 1082.0
+}

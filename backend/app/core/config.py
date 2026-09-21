@@ -81,10 +81,10 @@ class Settings(BaseSettings):
     deadline_workdays_only: bool = True  # 是否按工作日计算一般件时限
     holidays_path: Path = BACKEND_ROOT / "data" / "dispatch" / "holidays.json"
 
-    # ---- System One 决策模型（Jev / TypeSafe）：用带类型的校准概率做判断 ----
+    # ---- System One 决策模型：用带类型的校准概率做判断 ----
     # 契约：POST {base}/v1/systemone  {state, model, questions} → {model, answers{概率}, usage}
     # 获取 Key：typesafe.ai 候补名单（console.typesafe.ai → API Keys）；亦经 Vercel AI Gateway（typesafe-ai/jev）
-    decision_provider: str = "none"  # typesafe | vercel | none
+    decision_provider: str = "none"  # laya（本地开源）| typesafe | vercel | none
     decision_base_url: str = "https://api.typesafe.ai"
     decision_api_key: str = ""
     decision_model: str = "jev-latest"
@@ -92,6 +92,13 @@ class Settings(BaseSettings):
     decision_enabled: bool = False  # 是否让决策模型参与链路判断（关闭时完全走现有逻辑）
     decision_high_conf: float = 0.9  # ≥ 高阈值：可直接采用
     decision_low_conf: float = 0.5  # < 低阈值：转人工判断（不采用）
+    # laya（Apache 2.0 开源、非自回归 System 1 决策模型）本地部署参数
+    decision_model_path: str = ""  # 本地目录或仓库 id；空则用默认仓库 + subfolder
+    decision_laya_subfolder: str = "multilingual"  # 中文场景必须用 multilingual（根检查点仅英文）
+    decision_laya_device: str = "cpu"  # cpu | cuda
+    # 选项 token 预算：官方指出高基数 Choice 会因每选项 token 不足而失准，可上调（0=用默认 256）
+    decision_laya_head_max_len: int = 0
+    decision_laya_max_len: int = 0
 
 
 @lru_cache
