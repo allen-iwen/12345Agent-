@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     # 关闭模型内置思考链（Qwen 系 chat_template_kwargs.enable_thinking=false），
     # DeepSeek 推理模型忽略此开关
     llm_disable_thinking: bool = False
+    # 本地兜底引擎（与 ASR 双引擎同思路）：主模型网络不可用时自动降级，保证演示不中断
+    llm_fallback_enabled: bool = False
+    llm_fallback_base_url: str = ""
+    llm_fallback_model: str = ""
+    llm_fallback_api_key: str = "EMPTY"
+    llm_fallback_json_mode: bool = False  # 局域网 vLLM 常不支持 response_format
 
     # 科大讯飞录音文件转写（第二阶段）
     kdsf_asr_app_id: str = "replace_me"
@@ -103,6 +109,10 @@ class Settings(BaseSettings):
     # 配额守卫：额度耗尽/限流/过载后进入冷却期，期间回退规则与本地路径
     decision_degrade_seconds: int = 900  # 冷却时长（秒）
     decision_max_calls: int = 0  # 进程内调用上限（0=不限；评测/演示可设上限防刷爆额度）
+    # 结果缓存：案件详情每次读取都会重算合规审查（含决策模型调用），
+    # 而外部模型走不重置的终身额度 —— 缓存相同输入的答案可避免重复消耗
+    decision_cache: bool = True
+    decision_cache_max: int = 512
 
 
 @lru_cache

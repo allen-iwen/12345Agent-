@@ -4,7 +4,7 @@
   "model": "typesafe/jev-1.13-20260917",
   "requested_model": "~typesafe/jev-latest",
   "accuracy": 1.0,
-  "avg_latency_ms": 603.3,
+  "avg_latency_ms": 1013.1,
   "input_tokens": 47126,
   "cost_usd": 0.001979,
   "gate_distribution": {

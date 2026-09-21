@@ -84,22 +84,31 @@ def main() -> int:
     import threading
 
     class _Mock402(http.server.BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"  # 避免默认 HTTP/1.0 的关连接竞态（Windows 首连易被 RST）
+
         def do_POST(self):  # noqa: N802
+            body = _json.dumps({"error": "insufficient balance: quota exceeded"}).encode()
             self.send_response(402)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(_json.dumps({"error": "insufficient balance: quota exceeded"}).encode())
+            self.wfile.write(body)
 
         def log_message(self, *args):  # 静音
             pass
 
-    srv = http.server.HTTPServer(("127.0.0.1", 8099), _Mock402)
+    # 端口交给系统分配；用多线程服务器并在启动后稍等，规避首连被重置的偶发问题
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Mock402)
+    port = srv.server_address[1]
     threading.Thread(target=srv.serve_forever, daemon=True).start()
+    import time as _time
+
+    _time.sleep(0.25)
 
     saved = {k: os.environ.get(k) for k in ("DECISION_PROVIDER", "DECISION_BASE_URL", "DECISION_API_KEY")}
     try:
         os.environ["DECISION_PROVIDER"] = "typesafe"
-        os.environ["DECISION_BASE_URL"] = "http://127.0.0.1:8099"
+        os.environ["DECISION_BASE_URL"] = f"http://127.0.0.1:{port}"
         os.environ["DECISION_API_KEY"] = "test-key"
         from app.core.config import get_settings
 

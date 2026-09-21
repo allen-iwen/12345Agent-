@@ -120,16 +120,39 @@ def chat_json(
     if settings.llm_disable_thinking:
         # vLLM 部署的 Qwen 系模型：关闭内置思考链（避免思考 token 占用与格式漂移）
         kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
-    response = client.chat.completions.create(
-        model=model or settings.llm_model,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        **kwargs,
-    )
+    try:
+        response = client.chat.completions.create(
+            model=model or settings.llm_model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            **kwargs,
+        )
+    except Exception as exc:  # noqa: BLE001
+        # 本地兜底引擎：与 ASR 双引擎同思路——主模型网络不可用时自动降级，保证演示不中断
+        if not settings.llm_fallback_enabled or not settings.llm_fallback_base_url:
+            raise
+        if base_url:  # 已经是显式指定的端点（如第二模型复核），不再二次兜底
+            raise
+        logger.warning("主模型不可用（%s: %s），降级本地兜底引擎 %s",
+                       type(exc).__name__, str(exc)[:80], settings.llm_fallback_model)
+        fb = get_client_for(settings.llm_fallback_base_url, settings.llm_fallback_api_key)
+        fb_kwargs: dict[str, Any] = {}
+        if settings.llm_fallback_json_mode:
+            fb_kwargs["response_format"] = {"type": "json_object"}
+        response = fb.chat.completions.create(
+            model=settings.llm_fallback_model or (model or settings.llm_model),
+            temperature=temperature,
+            max_tokens=max_tokens,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            **fb_kwargs,
+        )
     content = response.choices[0].message.content or ""
     if not content.strip():
         # 推理预算耗尽等情形会得到空内容——抛错交给 tenacity 重试，而不是静默返回空对象

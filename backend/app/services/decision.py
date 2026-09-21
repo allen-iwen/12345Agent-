@@ -221,8 +221,24 @@ def _ask_laya(state: str | dict | list, questions: dict[str, dict], cfg: dict) -
 _degraded_until = 0.0
 _degrade_reason = ""
 _call_count = 0
+_cache: dict[str, dict] = {}
+_cache_hits = 0
 _DEGRADE_CODES = {402, 429, 529, 403}
 _DEGRADE_KEYWORDS = ("quota", "insufficient", "rate limit", "credit", "balance", "exceeded")
+
+
+def _cache_key(cfg: dict, state, questions: dict, model: str | None) -> str:
+    """按 (provider + model + state + questions) 生成缓存键。
+
+    必要性：案件详情每次读取都会计算答复合规审查（含决策模型调用），
+    而 JEV 走的是**不重置的终身额度**——没有缓存时反复点开同一案件会白烧额度。
+    """
+    import hashlib
+    import json as _json
+
+    payload = _json.dumps({"p": cfg.get("provider"), "m": model or cfg.get("model"),
+                           "s": state, "q": questions}, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(payload.encode()).hexdigest()[:32]
 
 
 def _mark_degraded(reason: str) -> None:
@@ -246,7 +262,8 @@ def reset_degrade() -> None:
 
 
 def usage_stats() -> dict:
-    return {"calls_this_process": _call_count, **degraded()}
+    return {"calls_this_process": _call_count, "cache_size": len(_cache),
+            "cache_hits": _cache_hits, **degraded()}
 
 
 def ask(state: str | dict | list, questions: dict[str, dict], model: str | None = None) -> dict:
@@ -270,6 +287,14 @@ def ask(state: str | dict | list, questions: dict[str, dict], model: str | None 
                 "note": f"决策模型处于降级冷却期（剩余 {dg['remaining_s']}s）：{dg['reason']}；已回退规则与本地路径"}
 
     s = get_settings()
+    cache_key = _cache_key(cfg, state, questions, model)
+    if s.decision_cache and cache_key in _cache:
+        global _cache_hits
+        _cache_hits += 1
+        hit = dict(_cache[cache_key])
+        hit["cached"] = True
+        return hit
+
     if s.decision_max_calls and _call_count >= s.decision_max_calls:
         _mark_degraded(f"已达进程内调用上限 {s.decision_max_calls} 次（保护性熔断）")
         return {"available": False, "note": f"决策模型已达调用上限 {s.decision_max_calls}，本进程内不再调用"}
@@ -341,7 +366,7 @@ def ask(state: str | dict | list, questions: dict[str, dict], model: str | None 
         cost_usd = round(float(usage["cost"]), 8)
     else:
         cost_usd = round(float(usage.get("input_tokens") or 0) * 0.042 / 1_000_000, 8)
-    return {
+    result = {
         "available": True,
         "provider": cfg["provider"],
         "model": model_version,
@@ -350,3 +375,9 @@ def ask(state: str | dict | list, questions: dict[str, dict], model: str | None 
         "usage": usage,
         "cost_usd": cost_usd,
     }
+    # 只缓存成功结果（失败不缓存，便于恢复后立即重试）
+    if s.decision_cache:
+        if len(_cache) >= s.decision_cache_max:
+            _cache.clear()  # 简单策略：满则清空（决策调用输入高度分散，无需 LRU）
+        _cache[cache_key] = dict(result)
+    return result

@@ -123,7 +123,9 @@ def _conclusions(a: dict) -> dict:
     severity = (a.get("severity") or {}).get("value")
     return {
         "is_hazard": bool((a.get("safety_hazard") or {}).get("value")),
-        "hazard_level": ("特急" if (severity or 0) >= 1.8 else "紧急" if (severity or 0) >= 0.8 else "一般"),
+        # 严重度阈值经实测收紧：JEV 对非隐患文本（如烧烤油烟）也可能给出 0.85 的严重度，
+        # 原 ≥0.8 升紧急会过度升级；改为 ≥1.0 升紧急、≥1.8 升特急（真实隐患如电线坠落/井盖缺失约在 1.8–2.0）
+        "hazard_level": ("特急" if (severity or 0) >= 1.8 else "紧急" if (severity or 0) >= 1.0 else "一般"),
         "severity_score": severity,
         "mass_impact": bool((a.get("mass_impact") or {}).get("value")),
         "cross_duty": bool((a.get("cross_duty") or {}).get("value")),
