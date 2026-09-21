@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react'
 import useSWR from 'swr'
 import {
-  AlertTriangle, AudioLines, Check, ChevronRight, Loader2, PenLine,
+  AlertTriangle, AudioLines, Check, ChevronRight, ImagePlus, Loader2, PenLine,
   PencilLine, Send, Square, Upload, X,
 } from 'lucide-react'
 import { api, type CaseView } from '../lib/api'
@@ -79,6 +79,9 @@ export function Workbench() {
 }
 
 // ================= 录入面板 =================
+type AttachmentVision = NonNullable<NonNullable<CaseView['attachments']>[number]['vision']>
+type PhotoItem = { id: string; url: string; vision: AttachmentVision | null }
+
 function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
   const [text, setText] = useState('')
   const [channel, setChannel] = useState(CHANNELS[0])
@@ -88,21 +91,61 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
   const [asrNote, setAsrNote] = useState('')
   const [asrRaw, setAsrRaw] = useState('')
   const [showRaw, setShowRaw] = useState(false)
+  const [photos, setPhotos] = useState<PhotoItem[]>([])
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [photoNote, setPhotoNote] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  const photoRef = useRef<HTMLInputElement>(null)
 
   const submit = async () => {
     if (!text.trim() || busy || rec === 'recording') return
     setBusy(true)
     setError('')
     try {
-      const c = await api.createCase(text.trim(), channel)
+      const c = await api.createCase(text.trim(), channel, photos.map((p) => p.id))
       setText('')
+      photos.forEach((p) => URL.revokeObjectURL(p.url))
+      setPhotos([])
+      setPhotoNote('')
       onCreated(c)
     } catch (e) {
       setError(String(e))
     } finally {
       setBusy(false)
     }
+  }
+
+  const uploadPhoto = async (f: File) => {
+    setPhotoBusy(true)
+    setError('')
+    try {
+      const r = await api.uploadAttachment(f, 'image', text)
+      setPhotos((prev) => [...prev, { id: r.id, url: URL.createObjectURL(f), vision: r.vision as never }])
+      const v = r.vision
+      if (v?.available) {
+        setPhotoNote(
+          `图片分析：${v.hazard ? '发现隐患' : '未见明显隐患'}`
+            + (v.hazard_type ? ` · ${v.hazard_type}` : '')
+            + (v.severity ? ` · ${v.severity}` : '')
+            + (v.summary ? ` · ${v.summary.slice(0, 30)}` : ''),
+        )
+      } else {
+        setPhotoNote(v?.note || '视觉模型不可用，请人工判读图片')
+      }
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setPhotoBusy(false)
+      if (photoRef.current) photoRef.current.value = ''
+    }
+  }
+
+  const removePhoto = async (id: string, url: string) => {
+    URL.revokeObjectURL(url)
+    setPhotos((prev) => prev.filter((p) => p.id !== id))
+    try {
+      await api.deleteAttachment(id)
+    } catch { /* 忽略删除失败 */ }
   }
 
   const uploadAudio = async (f: File) => {
@@ -192,6 +235,26 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
           <Upload className="h-3.5 w-3.5" />
           录音文件
         </Button>
+        <input
+          ref={photoRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif,image/bmp"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) uploadPhoto(f)
+          }}
+        />
+        <Button
+          size="sm"
+          onClick={() => photoRef.current?.click()}
+          disabled={photoBusy || busy}
+          className="shrink-0"
+          title="上传现场照片（井盖缺失、道路破损、垃圾堆积等），由视觉模型识别隐患并影响分类与急件分级"
+        >
+          {photoBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+          现场照片
+        </Button>
         <select
           value={channel}
           onChange={(e) => setChannel(e.target.value)}
@@ -213,6 +276,27 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <PenLine className="h-4 w-4" />}
         {busy ? '生成中…（约 1 分钟，五个节点依次执行）' : '生成工单'}
       </Button>
+      {photoNote && (
+        <div className="mt-1.5 text-[11px] text-text-secondary bg-surface border border-border rounded-md px-2 py-1.5 leading-relaxed">
+          {photoNote}
+        </div>
+      )}
+      {photos.length > 0 && (
+        <div className="flex gap-1.5 mt-1.5 flex-wrap">
+          {photos.map((p) => (
+            <div key={p.id} className="relative group">
+              <img src={p.url} alt="现场照片" className="h-14 w-14 object-cover rounded-md border border-border" />
+              <button
+                onClick={() => removePhoto(p.id, p.url)}
+                className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-danger text-white text-[10px] leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                title="移除照片"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       {rec === 'recording' && (
         <div className="mt-2 text-[11px] flex items-center gap-1.5 text-red-600">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-pulse-dot" />
@@ -409,6 +493,9 @@ function CaseDetail({ data, onChanged }: { data: CaseView; onChanged: () => void
 
       {/* 支柱五：办理时限倒计时 */}
       {data.deadline && <DeadlineStrip deadline={data.deadline} />}
+
+      {/* 证据附件（图片）与视觉结论 */}
+      {(data.attachments?.length ?? 0) > 0 && <EvidenceStrip attachments={data.attachments ?? []} />}
 
       {/* 未诉先办 · 苗头预警 */}
       {data.early_warning && <EarlyWarningBanner warning={data.early_warning} />}
@@ -1023,6 +1110,64 @@ function GovernancePanel({ governance }: { governance: NonNullable<CaseView['gov
             </ul>
           </div>
         )}
+      </CardBody>
+    </Card>
+  )
+}
+
+// ---- 证据附件（图片证据受理）----
+function EvidenceStrip({ attachments }: { attachments: NonNullable<CaseView['attachments']> }) {
+  return (
+    <Card className="mb-4">
+      <CardHeader>
+        <CardTitle>现场照片证据</CardTitle>
+        <span className="text-[11px] text-muted ml-auto">视觉模型判读 · 仅作辅助，可人工复核</span>
+      </CardHeader>
+      <CardBody className="py-3 space-y-2.5">
+        {attachments.map((a) => {
+          const v = a.vision
+          return (
+            <div key={a.id} className="flex gap-3 items-start">
+              {a.kind === 'image' ? (
+                <img
+                  src={api.attachmentRawUrl(a.id)}
+                  alt={a.filename}
+                  className="h-20 w-20 object-cover rounded-md border border-border shrink-0"
+                />
+              ) : (
+                <div className="h-20 w-20 rounded-md border border-border shrink-0 flex items-center justify-center text-[10px] text-muted">
+                  音频
+                </div>
+              )}
+              <div className="min-w-0 flex-1 text-xs">
+                <div className="flex flex-wrap items-center gap-x-2">
+                  <span className="font-medium truncate">{a.filename}</span>
+                  {v?.available ? (
+                    <>
+                      <Badge tone={v.hazard ? 'danger' : 'neutral'}>
+                        {v.hazard ? `隐患：${v.hazard_type}` : '未见明显隐患'}
+                      </Badge>
+                      {v.severity && <Badge tone={v.severity === '特急' ? 'danger' : v.severity === '紧急' ? 'warning' : 'neutral'}>
+                        严重程度 {v.severity}
+                      </Badge>}
+                      {typeof v.confidence === 'number' && (
+                        <span className="text-[10px] text-muted-light font-mono">置信度 {v.confidence.toFixed(2)}</span>
+                      )}
+                    </>
+                  ) : (
+                    <Badge>人工判读（{v?.note || '视觉模型不可用'}）</Badge>
+                  )}
+                </div>
+                {v?.summary && <p className="text-text-secondary mt-1 leading-relaxed">{v.summary}</p>}
+                {v?.elements && Object.keys(v.elements).length > 0 && (
+                  <div className="text-muted mt-1">
+                    可见要素：{Object.entries(v.elements).map(([k, val]) => `${k}=${val}`).join('、')}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </CardBody>
     </Card>
   )

@@ -73,6 +73,27 @@ export interface CaseView {
     total: number
   } | null
   agent_seconds: number | null
+  // 证据附件（图片/音频）及其视觉分析结论
+  attachments?: {
+    id: string
+    kind: string
+    filename: string
+    mime: string
+    size: number
+    created_at: string
+    vision: {
+      available: boolean
+      provider?: string
+      model?: string
+      hazard?: boolean
+      hazard_type?: string
+      severity?: string
+      summary?: string
+      confidence?: number
+      elements?: Record<string, string>
+      note?: string
+    } | null
+  }[]
   // 支柱二：急件识别与办理时限分级
   urgency?: {
     level: '特急' | '紧急' | '一般'
@@ -209,8 +230,44 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => req<{ status: string }>('/health'),
-  createCase: (text: string, source_channel = '直接来电（呼入）') =>
-    req<CaseView>('/api/cases', { method: 'POST', body: JSON.stringify({ text, source_channel }) }),
+  createCase: (text: string, source_channel = '直接来电（呼入）', attachment_ids: string[] = []) =>
+    req<CaseView>('/api/cases', { method: 'POST', body: JSON.stringify({ text, source_channel, attachment_ids }) }),
+  // 证据附件（现场照片 → 视觉分析）
+  uploadAttachment: async (file: File, kind: 'image' | 'audio' = 'image', contextText = '') => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('kind', kind)
+    form.append('context_text', contextText)
+    const res = await fetch(BASE + '/api/attachments', { method: 'POST', body: form })
+    if (!res.ok) {
+      let detail = res.statusText
+      try {
+        const body = await res.json()
+        detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail)
+      } catch { /* ignore */ }
+      throw new Error(`图片上传失败：${detail}`)
+    }
+    return (await res.json()) as {
+      id: string
+      kind: string
+      filename: string
+      size: number
+      vision: {
+        available: boolean
+        hazard?: boolean
+        hazard_type?: string
+        severity?: string
+        summary?: string
+        confidence?: number
+        elements?: Record<string, string>
+        note?: string
+      } | null
+      vision_available: boolean
+    }
+  },
+  deleteAttachment: (id: string) => req<{ ok: boolean }>(`/api/attachments/${id}`, { method: 'DELETE' }),
+  attachmentRawUrl: (id: string) => `${BASE}/api/attachments/${id}/raw`,
+  visionStatus: () => req<{ available: boolean; providers: string[]; max_bytes: number }>('/api/attachments/status'),
   listCases: () => req<CaseView[]>('/api/cases?limit=30'),
   getCase: (id: string) => req<CaseView>(`/api/cases/${id}`),
   review: (
