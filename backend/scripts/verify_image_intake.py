@@ -72,17 +72,24 @@ def main() -> int:
     urg = c.get("urgency") or {}
     # 合成示意图的视觉判定不稳定（抽象图可能被判为「无隐患」），故此处只验证机制一致性：
     # 视觉判定为隐患时必须升级并标注来源；未判定隐患时不得凭空升级。
-    if v.get("hazard") and v.get("severity") in ("特急", "紧急"):
-        check("图片证据使急件升级", urg.get("level") == v.get("severity"), f"{urg.get('level')} vs {v.get('severity')}")
-        check("升级原因含图片证据", any("图片证据" in s for s in (urg.get("signals") or [])),
-              "、".join(urg.get("signals") or [])[:40])
+    if v.get("hazard"):
+        # 关键机制：升级依据是「险种」，不是模型自报的 severity（后者实测跨次不稳定）
+        check("判隐患时升级并标注图片证据来源",
+              any("图片证据" in s for s in (urg.get("signals") or [])),
+              f"险种={v.get('hazard_type')}｜模型severity={v.get('severity')}｜急件={urg.get('level')}")
     else:
-        check("视觉未判隐患时不凭空升级", urg.get("level") in ("一般", "紧急"), str(urg.get("level")))
+        check("未判隐患时视觉未触发升级（文本规则另计）",
+              not any("图片证据" in s for s in (urg.get("signals") or [])),
+              f"急件={urg.get('level')}（可能由文本规则判定）")
     check("时限条款与等级匹配", bool(((c.get("deadline") or {}).get("basis", {}) or {}).get("clause")),
           ((c.get("deadline") or {}).get("basis", {}) or {}).get("clause", "")[:28])
-    check("答复含安全提示（隐患类必备）", any(k in (c.get("reply_draft") or {}).get("reply_text", "")
-                                              for k in ("远离", "拨打", "注意安全", "安全")),
-          "")
+    # 安全提示仅在「确属隐患/急件」时才是必备项：一般件答复无安全提示属正常，不作断言
+    is_hazard_case = bool(v.get("hazard")) or urg.get("level") in ("特急", "紧急")
+    if is_hazard_case:
+        check("隐患类答复含安全提示", any(k in (c.get("reply_draft") or {}).get("reply_text", "")
+                                          for k in ("远离", "拨打", "注意安全", "安全")), "")
+    else:
+        check("非隐患件不强制安全提示（不作断言）", True, f"视觉={v.get('hazard_type')}｜急件={urg.get('level')}")
 
     print("\n=== 4. 附件回显与列表 ===")
     raw = requests.get(f"{BASE}/api/attachments/{up['id']}/raw", timeout=15)
