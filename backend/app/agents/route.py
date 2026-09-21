@@ -57,6 +57,7 @@ def run(
     classification: Classification,
     raw_text: str,
     vision_signals: list[dict] | None = None,
+    decision_signals: dict | None = None,
 ) -> Routing:
     settings = get_settings()
     rules_block = "承办单位职责规则：未录入"
@@ -73,7 +74,7 @@ def run(
     history_block = "历史工单办理单位参考：\n" + ("\n".join(sim_lines) if sim_lines else "暂无")
 
     # ---- 规则引擎锚点（支柱一）----
-    decision = dispatch.decide(work_order, classification, raw_text)
+    decision = dispatch.decide(work_order, classification, raw_text, decision_signals=decision_signals)
     anchor_lines = [
         f"主办单位：{decision['primary']}（类型：{decision['primary_kind']}）",
         f"决策路径：{decision['path']}｜命中规则：{decision['matched_rule']}",

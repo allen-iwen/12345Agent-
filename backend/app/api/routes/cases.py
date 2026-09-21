@@ -97,6 +97,17 @@ def _to_case(row: dict, *, enrich: bool = True) -> Case:
             case.early_warning = early_warning.detect(case)
             # 支柱四：答复合规审查（读时计算）
             if case.reply_draft is not None:
+                # System One 决策模型的答复三维判断（可选，默认关闭）
+                dec_sig: dict | None = None
+                try:
+                    from app.services import decision, decision_case
+
+                    if decision.enabled():
+                        sig = decision_case.reply_signals(case.raw_text, case.reply_draft.reply_text,
+                                                          case.work_order)
+                        dec_sig = sig if sig.get("available") else None
+                except Exception:  # noqa: BLE001
+                    dec_sig = None
                 case.reply_audit = reply_audit.audit(
                     case.reply_draft.reply_text,
                     case.reply_draft.policy_refs or [],
@@ -106,6 +117,7 @@ def _to_case(row: dict, *, enrich: bool = True) -> Case:
                         "urgency": case.urgency,
                         "manual_action": (case.understanding.manual_action if case.understanding else None),
                     },
+                    decision_signals=dec_sig,
                 )
             # 支柱三：诉求治理建议包（含时限督办）
             case.governance = governance.assess(case, deadline=case.deadline) or None

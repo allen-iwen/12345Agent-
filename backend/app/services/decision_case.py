@@ -57,11 +57,23 @@ def category_name(code: str | None) -> str | None:
 
 def build_questions() -> dict[str, dict]:
     """全案决策问题集（一次请求问完）。"""
+    q = {}
+    q.update(route_questions())
+    q.update(reply_questions())
+    q["category"] = decision.choice(
+        "这段群众诉求的核心事项属于哪一类？以诉求的核心事项为准，而不是地点或主体类型。",
+        category_criteria(),
+    )
+    q["repeat_request"] = decision.noul(
+        "诉求是否表明此前已反映过同类问题（再次反映、多次反映、至今未解决）？",
+        {"true": "明确提到此前反映过或问题反复出现", "false": "首次反映，未提及历史投诉"},
+    )
+    return q
+
+
+def route_questions() -> dict[str, dict]:
+    """流转/决策阶段的问题（答复尚未生成时即可问）。"""
     return {
-        "category": decision.choice(
-            "这段群众诉求的核心事项属于哪一类？以诉求的核心事项为准，而不是地点或主体类型。",
-            category_criteria(),
-        ),
         "safety_hazard": decision.noul(
             "诉求中是否包含可能危害人身安全的情形（如燃气泄漏、电线坠落、井盖缺失、消防通道堵塞、危房、电梯困人）？",
             {"true": "描述了具体的即时人身安全风险", "false": "仅为生活不便、服务纠纷、咨询建议或一般环境问题"},
@@ -86,10 +98,12 @@ def build_questions() -> dict[str, dict]:
             "该工单若直接派发，被承办单位退回重派的可能性有多大？",
             ["几乎不会被退回", "有可能被退回，需要说明依据", "很可能被退回，需要先协调"],
         ),
-        "repeat_request": decision.noul(
-            "诉求是否表明此前已反映过同类问题（再次反映、多次反映、至今未解决）？",
-            {"true": "明确提到此前反映过或问题反复出现", "false": "首次反映，未提及历史投诉"},
-        ),
+    }
+
+
+def reply_questions() -> dict[str, dict]:
+    """答复阶段的问题（需要草拟答复文本）。"""
+    return {
         "reply_overpromise": decision.score(
             "草拟答复是否对办理结果作出超出职责的承诺（如保证解决、承诺具体时限）？",
             ["未作任何超出职责的承诺", "措辞偏乐观但未明确承诺", "明确承诺了结果或时限"],
@@ -105,24 +119,45 @@ def build_questions() -> dict[str, dict]:
     }
 
 
-def build_state(raw_text: str, work_order=None, vision_summaries: list[str] | None = None,
-                reply_text: str | None = None) -> dict:
-    """构造精简 state：只放判断需要的内容（不含无关历史，避免上下文腐化）。"""
-    state: dict = {"诉求原文": (raw_text or "")[:STATE_CHAR_LIMIT]}
-    if work_order is not None:
-        state["工单标题"] = getattr(work_order, "title", "") or ""
-        state["事发地点"] = getattr(work_order, "location", "") or ""
-        state["事件描述"] = (getattr(work_order, "event_description", "") or "")[:600]
-    if vision_summaries:
-        state["现场照片结论"] = "；".join(s for s in vision_summaries if s)[:400]
-    if reply_text:
-        state["草拟答复"] = reply_text[:800]
-    return {k: v for k, v in state.items() if v}
+def _conclusions(a: dict) -> dict:
+    severity = (a.get("severity") or {}).get("value")
+    return {
+        "is_hazard": bool((a.get("safety_hazard") or {}).get("value")),
+        "hazard_level": ("特急" if (severity or 0) >= 1.8 else "紧急" if (severity or 0) >= 0.8 else "一般"),
+        "severity_score": severity,
+        "mass_impact": bool((a.get("mass_impact") or {}).get("value")),
+        "cross_duty": bool((a.get("cross_duty") or {}).get("value")),
+        "return_risk_score": (a.get("return_risk") or {}).get("value"),
+        "repeat_request": bool((a.get("repeat_request") or {}).get("value")),
+        "reply_overpromise_score": (a.get("reply_overpromise") or {}).get("value"),
+        "reply_addresses_request": (a.get("reply_addresses_request") or {}).get("value"),
+        "reply_privacy": (a.get("reply_privacy") or {}).get("value"),
+    }
+
+
+def route_signals(raw_text: str, work_order=None, vision_summaries: list[str] | None = None) -> dict:
+    """流转/决策阶段信号（一次调用，5 个问题）；未启用或失败时 available=False。"""
+    state = build_state(raw_text, work_order, vision_summaries)
+    result = decision.ask(state, route_questions())
+    if not result.get("available"):
+        return result
+    result["conclusions"] = _conclusions(result.get("answers") or {})
+    return result
+
+
+def reply_signals(raw_text: str, reply_text: str, work_order=None) -> dict:
+    """答复阶段信号（一次调用，3 个问题）；未启用或失败时 available=False。"""
+    state = build_state(raw_text, work_order, None, reply_text)
+    result = decision.ask(state, reply_questions())
+    if not result.get("available"):
+        return result
+    result["conclusions"] = _conclusions(result.get("answers") or {})
+    return result
 
 
 def assess(raw_text: str, work_order=None, vision_summaries: list[str] | None = None,
            reply_text: str | None = None, questions: dict[str, dict] | None = None) -> dict:
-    """一次调用完成全案判断；返回带门控的决策包。未配置时 available=False。"""
+    """一次调用完成全案判断（10 个问题）；返回带门控的决策包。未配置时 available=False。"""
     state = build_state(raw_text, work_order, vision_summaries, reply_text)
     result = decision.ask(state, questions or build_questions())
     if not result.get("available"):
@@ -136,31 +171,26 @@ def assess(raw_text: str, work_order=None, vision_summaries: list[str] | None = 
         "category_probabilities": cat.get("probabilities") or {},
         "category_confidence": cat.get("confidence"),
         "category_gate": cat.get("gate"),
-        "safety_hazard": (a.get("safety_hazard") or {}).get("value"),
-        "severity_score": (a.get("severity") or {}).get("value"),
-        "severity_confidence": (a.get("severity") or {}).get("confidence"),
-        "severity_gate": (a.get("severity") or {}).get("gate"),
-        "mass_impact": (a.get("mass_impact") or {}).get("value"),
-        "cross_duty": (a.get("cross_duty") or {}).get("value"),
-        "return_risk_score": (a.get("return_risk") or {}).get("value"),
-        "repeat_request": (a.get("repeat_request") or {}).get("value"),
-        "reply_overpromise_score": (a.get("reply_overpromise") or {}).get("value"),
-        "reply_addresses_request": (a.get("reply_addresses_request") or {}).get("value"),
-        "reply_privacy": (a.get("reply_privacy") or {}).get("value"),
+        **_conclusions(a),
     }
     result["bundle"] = bundle
-
-    # 由决策结果推导的语义结论（供各节点取用）
-    severity = bundle.get("severity_score")
-    result["conclusions"] = {
-        "is_hazard": bool(bundle.get("safety_hazard")),
-        # 严重度：Score 0/1/2 → 一般/紧急/特急（与 urgency 分级对齐）
-        "hazard_level": ("特急" if (severity or 0) >= 1.8 else "紧急" if (severity or 0) >= 0.8 else "一般"),
-        "mass_impact": bool(bundle.get("mass_impact")),
-        "cross_duty": bool(bundle.get("cross_duty")),
-        "repeat_request": bool(bundle.get("repeat_request")),
-    }
+    result["conclusions"] = _conclusions(a)
     return result
+
+
+def build_state(raw_text: str, work_order=None, vision_summaries: list[str] | None = None,
+                reply_text: str | None = None) -> dict:
+    """构造精简 state：只放判断需要的内容（不含无关历史，避免上下文腐化）。"""
+    state: dict = {"诉求原文": (raw_text or "")[:STATE_CHAR_LIMIT]}
+    if work_order is not None:
+        state["工单标题"] = getattr(work_order, "title", "") or ""
+        state["事发地点"] = getattr(work_order, "location", "") or ""
+        state["事件描述"] = (getattr(work_order, "event_description", "") or "")[:600]
+    if vision_summaries:
+        state["现场照片结论"] = "；".join(s for s in vision_summaries if s)[:400]
+    if reply_text:
+        state["草拟答复"] = reply_text[:800]
+    return {k: v for k, v in state.items() if v}
 
 
 def classify_only(raw_text: str, work_order=None, vision_summaries: list[str] | None = None) -> dict:

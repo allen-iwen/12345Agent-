@@ -37,10 +37,12 @@ def assess(
     work_order=None,
     classification=None,
     vision_signals: list[dict] | None = None,
+    decision_signals: dict | None = None,
 ) -> dict:
     """识别紧急等级、建议时限与即时处置动作，返回可审计的分级结论。
 
-    vision_signals：图片证据的视觉结论；存在人类安全隐患判定时直接升级为特急。
+    vision_signals：图片证据的视觉结论；存在人类安全隐患判定时按险种定级。
+    decision_signals：System One 决策模型结论（含 is_hazard / hazard_level / mass_impact）。
     """
     rules = _rules()
     parts = [raw_text or ""]
@@ -117,6 +119,33 @@ def assess(
             best["signals"] = best.get("signals", []) + [
                 "图片证据：" + "、".join(t for t, _ in vision_levels)
             ]
+
+    # 决策模型信号（System One）：存在人身安全隐患 / 大面积影响时参与定级
+    conclusions = (decision_signals or {}).get("conclusions") or {}
+    if (decision_signals or {}).get("available") and conclusions:
+        model_level = conclusions.get("hazard_level") if conclusions.get("is_hazard") else None
+        if model_level and _LEVEL_ORDER.get(model_level, 0) > _LEVEL_ORDER.get(best["level"], 0):
+            lv = next((x for x in rules.get("levels", []) if x["level"] == model_level), None)
+            best = {
+                "level": model_level,
+                "label": (lv or {}).get("label", model_level) + "（决策模型判定）",
+                "limit_hint": (lv or {}).get("limit_hint", ""),
+                "actions": (lv or {}).get("actions", []),
+                "signals": best.get("signals", []) + [
+                    f"决策模型：疑似人身安全隐患（严重度 {conclusions.get('severity_score')}）"
+                ],
+            }
+        elif conclusions.get("mass_impact") and _LEVEL_ORDER.get(best["level"], 0) < 1:
+            lv = next((x for x in rules.get("levels", []) if x["level"] == "紧急"), None)
+            best = {
+                "level": "紧急",
+                "label": (lv or {}).get("label", "紧急") + "（决策模型判定）",
+                "limit_hint": (lv or {}).get("limit_hint", ""),
+                "actions": (lv or {}).get("actions", []),
+                "signals": best.get("signals", []) + ["决策模型：涉及大面积/群体性影响"],
+            }
+        else:
+            best["signals"] = best.get("signals", []) + ["决策模型：未判定人身安全隐患"]
 
     legal = rules.get("legal_basis", {})
     basis = {

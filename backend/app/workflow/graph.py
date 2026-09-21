@@ -155,12 +155,28 @@ def node_route(state: CaseState) -> dict:
     }) as t:
         wo = WorkOrder(**state["work_order"])
         cls = Classification(**state["classification"])
-        routing = route.run(wo, cls, state["raw_text"], vision_signals=state.get("vision_signals"))
-        # 支柱二：急件识别与办理时限分级（规则式 + 图片证据升级，随转派节点产出）
+        # System One 决策模型信号（可选，默认关闭）：职责交叉/安全隐患等判断
+        dec_signals: dict | None = None
+        try:
+            from app.services import decision, decision_case
+
+            if decision.enabled():
+                vsum = [v.get("summary", "") for v in (state.get("vision_signals") or []) if isinstance(v, dict)]
+                sig = decision_case.route_signals(state["raw_text"], wo, vsum)
+                dec_signals = sig if sig.get("available") else None
+        except Exception:  # noqa: BLE001 - 决策模型不可用不影响链路
+            dec_signals = None
+
+        routing = route.run(wo, cls, state["raw_text"], vision_signals=state.get("vision_signals"),
+                            decision_signals=dec_signals)
+        # 支柱二：急件识别与办理时限分级（规则式 + 图片证据 + 决策模型信号）
         und = Understanding(**state["understanding"]) if state.get("understanding") else None
-        urg = urgency_svc.assess(state["raw_text"], und, wo, cls, vision_signals=state.get("vision_signals"))
+        urg = urgency_svc.assess(state["raw_text"], und, wo, cls,
+                                 vision_signals=state.get("vision_signals"),
+                                 decision_signals=dec_signals)
         out = routing.model_dump()
-        t.done({**out, "urgency": urg})
+        t.done({**out, "urgency": urg,
+                "decision_signals": (dec_signals or {}).get("conclusions") if dec_signals else None})
     return {"routing": out, "urgency": urg}
 
 

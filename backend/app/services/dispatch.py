@@ -92,8 +92,11 @@ def _co_units(category_code: str | None, primary: str) -> list[dict]:
     return out
 
 
-def decide(work_order, classification, raw_text: str) -> dict:
-    """三层派单决策，返回决策包（含依据链与退回风险）。"""
+def decide(work_order, classification, raw_text: str, decision_signals: dict | None = None) -> dict:
+    """三层派单决策，返回决策包（含依据链与退回风险）。
+
+    decision_signals：System One 决策模型的职责交叉/退回风险判断（可选，参与风险定级）。
+    """
     rules = _rules()
     text = _text_of(work_order, raw_text)
     category_code = getattr(classification, "category_code", None) if classification else None
@@ -106,6 +109,16 @@ def decide(work_order, classification, raw_text: str) -> dict:
             "type": "政策依据",
             "source": legal.get("name", ""),
             "detail": "；".join(legal.get("clauses", [])[:2]),
+        })
+
+    # 决策模型信号（可选）：职责交叉判断进入依据链
+    model = (decision_signals or {}).get("conclusions") or {}
+    model_available = bool((decision_signals or {}).get("available"))
+    if model_available and model.get("cross_duty"):
+        evidence.append({
+            "type": "模型判断",
+            "source": "System One 决策模型",
+            "detail": f"判定为职责交叉（退回风险分 {model.get('return_risk_score')}），建议派前协调并抄送属地热线主管部门",
         })
 
     # ---- 第 1 层：专业直派 ----
@@ -149,8 +162,8 @@ def decide(work_order, classification, raw_text: str) -> dict:
             "source": "官方样例工单（18 条）",
             "detail": "同批次样例中 89%（16/18）由属地政府/开发区承办，仅 11% 直派市直部门——与本判定一致",
         })
-        # 职责交叉 → 退回风险
-        risk_key = "high" if len(co) >= 2 else ("medium" if co else "low")
+        # 职责交叉 → 退回风险（决策模型判定为职责交叉时直接按高风险管理）
+        risk_key = "high" if (len(co) >= 2 or (model_available and model.get("cross_duty"))) else ("medium" if co else "low")
         risk = rules.get("return_risk", {}).get(risk_key, "")
         return {
             "path": "属地主办",
@@ -162,6 +175,8 @@ def decide(work_order, classification, raw_text: str) -> dict:
             "return_risk": risk.format(n=len(co) + 1) if "{n}" in risk else risk,
             "confidence": 0.85 if co else 0.9,
             "matched_rule": f"属地管理原则（{district['keyword']}）",
+            "model_cross_duty": bool(model_available and model.get("cross_duty")),
+            "model_return_risk_score": model.get("return_risk_score"),
         }
 
     # ---- 第 3 层：类别兜底（无地点线索时按事项类别推市直部门）----

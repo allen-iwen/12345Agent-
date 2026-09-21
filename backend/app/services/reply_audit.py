@@ -120,10 +120,12 @@ def audit(
     reply_text: str,
     policy_refs: list[str] | None = None,
     context: dict | None = None,
+    decision_signals: dict | None = None,
 ) -> dict:
     """对草拟答复做合规审查，返回风险等级、问题清单与修改建议。
 
     context 可含：raw_text / event_description / urgency / manual_action。
+    decision_signals：System One 决策模型对答复三维（过度承诺/未正面回应/隐私）的判断（可选）。
     """
     rules = _rules()
     text = reply_text or ""
@@ -180,6 +182,31 @@ def audit(
             })
 
     findings += _llm_semantic_review(text, request_text)
+
+    # System One 决策模型的三维判断（可选）：只补充发现，不改变规则命中
+    model = (decision_signals or {}).get("conclusions") or {}
+    if (decision_signals or {}).get("available") and model:
+        if (model.get("reply_overpromise_score") or 0) >= 1.5:
+            findings.append({
+                "type": "overpromise", "label": "过度承诺（模型判定）", "severity": "high",
+                "quote": f"承诺程度分 {model.get('reply_overpromise_score')}", "index": -1,
+                "suggestion": "改为按程序表述，如「将依法依规核实处理」，不承诺具体结果",
+                "source": "决策模型",
+            })
+        if model.get("reply_addresses_request") is False:
+            findings.append({
+                "type": "no_direct_response", "label": "未正面回应诉求（模型判定）", "severity": "medium",
+                "quote": "未回应诉求主题", "index": -1,
+                "suggestion": "答复须正面回应群众诉求：核查情况、办理方向、依据或措施、后续安排",
+                "source": "决策模型",
+            })
+        if model.get("reply_privacy") is True:
+            findings.append({
+                "type": "privacy_leak", "label": "隐私信息泄露风险（模型判定）", "severity": "high",
+                "quote": "疑似含个人敏感信息", "index": -1,
+                "suggestion": "删除手机号、身份证号、精确门牌；统一用「您」指代",
+                "source": "决策模型",
+            })
 
     top = max((_SEVERITY_RANK.get(f["severity"], 1) for f in findings), default=0)
     risk = _RISK_BY_RANK.get(top, "无")
