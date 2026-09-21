@@ -40,6 +40,7 @@ CHECKS: list[tuple[str, list[str], bool, str]] = [
     ("界面 · 流转看板", [PY, "-u", "scripts/verify_board_ui.py"], True, r"看板界面验证"),
     ("界面 · 词条与督办", [PY, "-u", "scripts/verify_wiki_ui.py"], True, r"界面验证"),
     ("界面 · 账号与审计", [PY, "-u", "scripts/verify_admin_ui.py"], True, r"界面验证"),
+    ("界面 · 体验补强（搜索/跳转）", [PY, "-u", "scripts/verify_ux_ui.py"], True, r"体验补强验证"),
 ]
 
 

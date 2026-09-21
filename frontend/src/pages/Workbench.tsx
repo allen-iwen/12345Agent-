@@ -364,13 +364,61 @@ function IntakePanel({ onCreated }: { onCreated: (c: CaseView) => void }) {
 function QueuePanel({
   cases, selectedId, onSelect, loading,
 }: { cases: CaseView[]; selectedId: string | null; onSelect: (id: string) => void; loading: boolean }) {
+  const [q, setQ] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'awaiting_review' | 'completed'>('all')
   const pending = cases.filter((c) => c.status === 'awaiting_review').length
+
+  const filtered = cases.filter((c) => {
+    if (statusFilter !== 'all' && c.status !== statusFilter) return false
+    if (!q.trim()) return true
+    const kw = q.trim().toLowerCase()
+    const title = c.work_order?.title ?? ''
+    return (
+      title.toLowerCase().includes(kw) ||
+      (c.raw_text ?? '').toLowerCase().includes(kw) ||
+      (c.classification?.category_name ?? '').toLowerCase().includes(kw) ||
+      (c.routing?.primary ?? '').toLowerCase().includes(kw) ||
+      c.case_id.includes(kw)
+    )
+  })
+
   return (
     <section className="flex-1 min-h-0 flex flex-col">
       <div className="flex items-center gap-2 px-3.5 py-2 border-b border-border">
         <span className="text-xs font-semibold text-text-secondary">案件队列</span>
-        <span className="text-[10px] text-muted">{cases.length} 条</span>
+        <span className="text-[10px] text-muted">
+          {filtered.length === cases.length ? `${cases.length} 条` : `${filtered.length}/${cases.length} 条`}
+        </span>
         {pending > 0 && <Badge tone="warning" className="ml-auto">{pending} 待审</Badge>}
+      </div>
+      <div className="px-3.5 py-2 border-b border-border space-y-1.5">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="搜索标题 / 诉求 / 类别 / 承办单位 / 案件号"
+          className="w-full text-[11px] rounded-md border border-border bg-surface px-2 h-7 focus:outline-none focus:border-primary"
+        />
+        <div className="flex gap-1">
+          {([['all', '全部'], ['awaiting_review', '待审核'], ['completed', '已归档']] as const).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => setStatusFilter(k)}
+              className={
+                'text-[10px] rounded-[3px] border px-1.5 py-0.5 transition-colors ' +
+                (statusFilter === k
+                  ? 'border-primary text-primary bg-primary-subtle/40 font-medium'
+                  : 'border-border text-muted hover:border-border-strong')
+              }
+            >
+              {label}
+            </button>
+          ))}
+          {q && (
+            <button onClick={() => setQ('')} className="text-[10px] text-muted hover:text-text-secondary ml-auto">
+              清空搜索
+            </button>
+          )}
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto">
         {loading && <div className="p-4 text-xs text-muted">加载中…</div>}
@@ -379,7 +427,10 @@ function QueuePanel({
             暂无案件，从上方录入第一条诉求开始。
           </div>
         )}
-        {cases.map((c) => {
+        {!loading && cases.length > 0 && filtered.length === 0 && (
+          <div className="p-4 text-xs text-muted leading-relaxed">无匹配案件，试试更换关键词或筛选条件。</div>
+        )}
+        {filtered.map((c) => {
           const sm = STATUS_META[c.status] ?? STATUS_META.processing
           return (
             <button

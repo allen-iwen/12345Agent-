@@ -1,10 +1,11 @@
 // 工单流转看板：按流转状态分组，支持就地迁移（受角色守卫）与临期/超期督办
 import { useState } from 'react'
 import useSWR from 'swr'
-import { AlertTriangle, ArrowRight, Loader2, RefreshCw } from 'lucide-react'
+import { AlertTriangle, ArrowRight, ExternalLink, Loader2, RefreshCw } from 'lucide-react'
 import { api } from '../lib/api'
 import { Badge, Button, Card, CardBody, Spinner } from '../ui'
 import { cn } from '../lib/utils'
+import { useApp } from '../store'
 
 const ROLE_LABEL: Record<string, string> = {
   agent: '坐席',
@@ -32,6 +33,12 @@ const COLUMN_HINT: Record<string, string> = {
 export function BoardPage() {
   const { data, isLoading, mutate } = useSWR(['board'], () => api.board(), { refreshInterval: 15000 })
   const { data: deadlineStats } = useSWR(['deadline-stats'], () => api.deadlineStats(), { refreshInterval: 30000 })
+  const { select } = useApp()
+
+  const openCase = (caseId: string) => {
+    select(caseId)
+    window.location.hash = '#/'
+  }
   const [role, setRole] = useState<string>('dispatcher')
   const [actor, setActor] = useState<string>('派单员（演示）')
   const [busy, setBusy] = useState<string>('')
@@ -136,7 +143,12 @@ export function BoardPage() {
                     </div>
                   )}
                   {g.items.map((it) => (
-                    <Card key={it.case_id} className="hover:border-border-strong transition-colors">
+                    <Card
+                      key={it.case_id}
+                      className="hover:border-border-strong transition-colors cursor-pointer group"
+                      onClick={() => openCase(it.case_id)}
+                      title="点击打开该案件详情"
+                    >
                       <CardBody className="p-2.5 space-y-1.5">
                         <div className="flex items-start gap-1.5">
                           {it.urgency_level === '特急' && (
@@ -146,6 +158,7 @@ export function BoardPage() {
                             <span className="shrink-0 mt-px rounded-[2px] border border-warning text-warning text-[10px] font-semibold px-1 leading-4">紧急</span>
                           )}
                           <span className="text-[12px] leading-snug line-clamp-2">{it.title}</span>
+                          <ExternalLink className="h-3 w-3 text-muted-light opacity-0 group-hover:opacity-100 shrink-0 mt-px transition-opacity" />
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                           {it.deadline_state === '超期' && <Badge tone="danger">超期</Badge>}
@@ -160,7 +173,10 @@ export function BoardPage() {
                             <button
                               key={na.to}
                               disabled={busy === it.case_id + na.to}
-                              onClick={() => doTransition(it.case_id, na.to, na.action, g.state)}
+                              onClick={(e) => {
+                                e.stopPropagation()  // 避免触发卡片的「打开案件」
+                                doTransition(it.case_id, na.to, na.action, g.state)
+                              }}
                               title={`${na.description}（需要：${na.required_roles.map((r) => ROLE_LABEL[r] ?? r).join('/')}）`}
                               className={cn(
                                 'inline-flex items-center gap-1 text-[10px] rounded-[3px] border px-1.5 py-0.5 transition-colors',
