@@ -13,11 +13,12 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.repositories import cases as cases_repo
 from app.repositories import flow as flow_repo
+from app.services import auth
 from app.services import deadline as deadline_svc
 from app.services import workflow_state as ws
 
@@ -86,22 +87,35 @@ def case_flow(case_id: str, x_role: str = Header(default="dispatcher")) -> dict:
 
 
 @router.post("/cases/{case_id}/transition")
-def transition(case_id: str, req: TransitionRequest) -> dict:
+def transition(case_id: str, req: TransitionRequest, request: Request,
+               authorization: str | None = Header(default=None)) -> dict:
     row = cases_repo.get_case(case_id)
     if row is None:
         raise HTTPException(status_code=404, detail="案件不存在")
+    # RBAC 启用时以会话身份为准（请求体中的角色不可信）；关闭时沿用请求体（开发/演示态）
+    actor, role = req.actor, req.role
+    try:
+        user = auth.current_user(authorization)
+        if user.get("enforced"):
+            actor = user.get("actor") or actor
+            role = user.get("role") or role
+    except HTTPException:
+        raise
     current = flow_repo.get_state(case_id) or "received"
-    ok, reason = ws.can_transition(current, req.to, req.role)
+    ok, reason = ws.can_transition(current, req.to, role)
     if not ok:
+        auth.audit(actor, role, "流转被拒", "case", case_id, {"from": current, "to": req.to, "reason": reason}, request)
         raise HTTPException(status_code=409, detail=reason)
 
     meta = ws.TRANSITIONS[(current, req.to)]
     ok2, reason2 = flow_repo.set_state(
-        case_id, req.to, actor=req.actor, role=req.role, action=meta[1], note=req.note,
+        case_id, req.to, actor=actor, role=role, action=meta[1], note=req.note,
         expected_from=req.expected_from,
     )
     if not ok2:
         raise HTTPException(status_code=409, detail=reason2)
+    auth.audit(actor, role, f"流转：{meta[1]}", "case", case_id,
+               {"from": ws.label(current), "to": ws.label(req.to), "note": req.note}, request)
     return {
         "ok": True,
         "case_id": case_id,
@@ -110,5 +124,5 @@ def transition(case_id: str, req: TransitionRequest) -> dict:
         "to": req.to,
         "to_label": ws.label(req.to),
         "action": meta[1],
-        "next_actions": ws.next_actions(req.to, req.role),
+        "next_actions": ws.next_actions(req.to, role),
     }

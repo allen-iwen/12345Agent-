@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     rbac_enabled: bool = False
     session_secret: str = ""  # 空则启动时生成临时密钥并告警
     session_ttl_hours: int = 12
+    # 首次启动创建管理员时使用的密码；留空则生成随机密码并打印到控制台（仅一次）
+    auth_bootstrap_password: str = ""
 
     # ---- 办理时限 ----
     deadline_workdays_only: bool = True  # 是否按工作日计算一般件时限

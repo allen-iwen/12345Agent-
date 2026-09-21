@@ -16,12 +16,12 @@ import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from app.core.config import get_settings
 from app.repositories import attachments as repo
-from app.services import vision
+from app.services import auth, vision
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["attachments"])
@@ -122,10 +122,13 @@ def reanalyze(attachment_id: str, context_text: str = Form(default="")) -> dict:
 
 
 @router.delete("/attachments/{attachment_id}")
-def delete_attachment(attachment_id: str) -> dict:
+def delete_attachment(attachment_id: str, request: Request,
+                      user: dict = Depends(auth.require_role("agent", "admin"))) -> dict:
     row = repo.delete(attachment_id)
     if row is None:
         raise HTTPException(status_code=404, detail="附件不存在")
+    auth.audit(user.get("actor", ""), user.get("role", ""), "删除证据附件", "attachment", attachment_id,
+               {"filename": row.get("filename"), "case_id": row.get("case_id")}, request)
     return {"ok": True, "id": attachment_id}
 
 

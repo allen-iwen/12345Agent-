@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import uuid
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.repositories import attachments as attachments_repo
 from app.repositories import cases as repository
@@ -22,6 +22,7 @@ from app.schemas.models import (
     Understanding,
     WorkOrder,
 )
+from app.services import auth
 from app.services import deadline as deadline_svc
 from app.services import early_warning, governance, qc, reply_audit, tracing
 from app.workflow.graph import get_graph, run_chain
@@ -114,7 +115,8 @@ def _to_case(row: dict, *, enrich: bool = True) -> Case:
 
 
 @router.post("", response_model=Case)
-def create_case(req: CreateCaseRequest) -> Case:
+def create_case(req: CreateCaseRequest, request: Request,
+                user: dict = Depends(auth.require_role("agent", "dispatcher", "reviewer"))) -> Case:
     """录入诉求文本，运行全链路，停在人工审核点。"""
     case_id = uuid.uuid4().hex
     thread_id = case_id
@@ -162,6 +164,9 @@ def create_case(req: CreateCaseRequest) -> Case:
         logger.warning("flow auto advance failed", exc_info=True)
     row = repository.get_case(case_id)
     assert row is not None
+    auth.audit(user.get("actor", ""), user.get("role", ""), "创建工单", "case", case_id,
+               {"channel": req.source_channel, "attachments": len(req.attachment_ids),
+                "status": status, "vision_signals": len(vision_signals)}, request)
     return _to_case(row)
 
 
@@ -209,7 +214,8 @@ def get_case(case_id: str) -> Case:
 
 
 @router.post("/{case_id}/review", response_model=Case)
-def review_case(case_id: str, action: ReviewAction) -> Case:
+def review_case(case_id: str, action: ReviewAction, request: Request,
+                user: dict = Depends(auth.require_role("reviewer", "dispatcher"))) -> Case:
     """人工审核：
     - section=work_order|classification|routing|reply + approve/modify：分节确认或修正；
     - section=final + approve：最终放行，resume 工作流完成案件。
@@ -263,6 +269,9 @@ def review_case(case_id: str, action: ReviewAction) -> Case:
 
     row = repository.get_case(case_id)
     assert row is not None
+    auth.audit(user.get("actor", ""), user.get("role", ""),
+               f"审核：{action.section}/{action.action}", "case", case_id,
+               {"note": action.note, "modified": action.action == "modify"}, request)
     return _to_case(row)
 
 

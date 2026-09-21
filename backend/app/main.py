@@ -5,9 +5,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import asr, attachments, cases, flow, knowledge, policies, runs, telephony
+from app.api.routes import asr, attachments, auth, cases, flow, knowledge, policies, runs, telephony
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="12345 Agent API")
 
@@ -37,6 +38,24 @@ app.include_router(policies.router)
 app.include_router(telephony.router)
 app.include_router(attachments.router)
 app.include_router(flow.router)
+app.include_router(auth.router)
+
+
+@app.on_event("startup")
+def bootstrap_auth() -> None:
+    """首次启动引导：创建管理员账号，随机密码只打印到控制台（不落仓库）。"""
+    try:
+        from app.services import auth as auth_svc
+
+        cred = auth_svc.bootstrap()
+        if cred:
+            logger.warning("=" * 68)
+            logger.warning("已初始化账号（仅本次打印，请立即记录并修改密码）：")
+            logger.warning("  管理员  %s / %s", cred["username"], cred["password"])
+            logger.warning("  另有账号 %s", cred["also_created"])
+            logger.warning("=" * 68)
+    except Exception:  # noqa: BLE001 - 引导失败不应阻断服务启动
+        logger.warning("账号初始化失败", exc_info=True)
 
 
 @app.on_event("startup")
