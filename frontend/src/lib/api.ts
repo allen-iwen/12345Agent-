@@ -73,6 +73,13 @@ export interface CaseView {
     total: number
   } | null
   agent_seconds: number | null
+  // 流转状态（工单在业务流程中的位置）
+  flow_state?: string
+  flow_label?: string
+  flow_history?: {
+    id: number; from_state: string | null; to_state: string; from_label: string; to_label: string
+    actor: string; role: string; action: string; note: string; created_at: string
+  }[]
   // 证据附件（图片/音频）及其视觉分析结论
   attachments?: {
     id: string
@@ -268,6 +275,46 @@ export const api = {
   deleteAttachment: (id: string) => req<{ ok: boolean }>(`/api/attachments/${id}`, { method: 'DELETE' }),
   attachmentRawUrl: (id: string) => `${BASE}/api/attachments/${id}/raw`,
   visionStatus: () => req<{ available: boolean; providers: string[]; max_bytes: number }>('/api/attachments/status'),
+  // 工单流转（状态机 + 看板）
+  flowStates: () => req<{
+    states: { key: string; label: string }[]
+    main_flow: string[]
+    roles: string[]
+    transitions: { from: string; to: string; from_label: string; to_label: string; action: string; description: string; required_roles: string[] }[]
+  }>('/api/flow/states'),
+  board: () => req<{
+    groups: {
+      state: string
+      label: string
+      count: number
+      items: {
+        case_id: string; title: string; status: string; flow_state: string; flow_label: string
+        urgency_level: string; created_at: string; updated_at: string
+        deadline_state: string; due_at: string; remaining_hours: number
+      }[]
+    }[]
+    counts: Record<string, number>
+    total_cases: number
+    listed: number
+  }>('/api/flow/board'),
+  caseFlow: (caseId: string) => req<{
+    case_id: string
+    flow_state: string
+    flow_label: string
+    next_actions: { to: string; to_label: string; action: string; description: string; allowed: boolean; required_roles: string[] }[]
+    history: { id: number; from_state: string | null; to_state: string; from_label: string; to_label: string; actor: string; role: string; action: string; note: string; created_at: string }[]
+  }>(`/api/cases/${caseId}/flow`),
+  transition: (caseId: string, to: string, opts: { note?: string; actor?: string; role?: string; expectedFrom?: string } = {}) =>
+    req<{ ok: boolean; from_label: string; to_label: string; action: string }>(`/api/cases/${caseId}/transition`, {
+      method: 'POST',
+      body: JSON.stringify({
+        to,
+        note: opts.note ?? '',
+        actor: opts.actor ?? '坐席（演示）',
+        role: opts.role ?? 'dispatcher',
+        expected_from: opts.expectedFrom ?? null,
+      }),
+    }),
   listCases: () => req<CaseView[]>('/api/cases?limit=30'),
   getCase: (id: string) => req<CaseView>(`/api/cases/${id}`),
   review: (

@@ -6,7 +6,7 @@ import {
   PencilLine, Send, Square, Upload, X,
 } from 'lucide-react'
 import { api, type CaseView } from '../lib/api'
-import { fmtTime, STATUS_META } from '../lib/utils'
+import { fmtTime, STATUS_META, cn } from '../lib/utils'
 import { useMicRecorder } from '../lib/useMicRecorder'
 import { useApp } from '../store'
 import { Badge, Button, Card, CardBody, CardHeader, CardTitle, Field, Spinner } from '../ui'
@@ -487,6 +487,9 @@ function CaseDetail({ data, onChanged }: { data: CaseView; onChanged: () => void
           </div>
         </div>
       )}
+
+      {/* 工单流转（状态机） */}
+      {data.flow_state && <FlowStrip data={data} onChanged={onChanged} />}
 
       {/* 支柱二：急件分级与办理时限 */}
       {data.urgency && <UrgencyBanner urgency={data.urgency} />}
@@ -1170,6 +1173,107 @@ function EvidenceStrip({ attachments }: { attachments: NonNullable<CaseView['att
         })}
       </CardBody>
     </Card>
+  )
+}
+
+// ---- 工单流转条（状态机 + 就近迁移 + 流转记录）----
+const FLOW_MAIN = ['received', 'triaged', 'dispatched', 'accepted', 'processing', 'replied', 'reviewed', 'closed']
+const FLOW_LABEL: Record<string, string> = {
+  received: '已受理', triaged: '已分类', dispatched: '已派单', accepted: '已签收',
+  processing: '办理中', replied: '已回执', reviewed: '审核通过', closed: '已归档',
+  returned: '已退回', suspended: '承诺办理',
+}
+
+function FlowStrip({ data, onChanged }: { data: CaseView; onChanged: () => void }) {
+  const { data: flow, mutate } = useSWR(data.flow_state ? ['flow', data.case_id] : null, () => api.caseFlow(data.case_id))
+  const [busy, setBusy] = useState('')
+  const [err, setErr] = useState('')
+  const [openHistory, setOpenHistory] = useState(false)
+  const state = flow?.flow_state || data.flow_state || 'received'
+  const history = flow?.history || data.flow_history || []
+
+  const go = async (to: string) => {
+    setBusy(to)
+    setErr('')
+    try {
+      await api.transition(data.case_id, to, { role: 'dispatcher', actor: '坐席（演示）', expectedFrom: state })
+      await mutate()
+      onChanged()
+    } catch (e) {
+      setErr(String(e))
+    } finally {
+      setBusy('')
+    }
+  }
+
+  return (
+    <div className="mb-4 rounded-md border border-border bg-surface-elevated px-3 py-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span className="text-[11px] font-semibold text-text-secondary">工单流转</span>
+        <span className="rounded-[3px] bg-primary-subtle text-primary-dark border border-primary/20 text-[11px] px-1.5 py-0.5 font-medium">
+          {flow?.flow_label || data.flow_label || FLOW_LABEL[state]}
+        </span>
+        {/* 主线进度 */}
+        <div className="flex items-center gap-1 flex-wrap">
+          {FLOW_MAIN.map((s, i) => {
+            const idx = FLOW_MAIN.indexOf(state)
+            const done = idx >= 0 && i <= idx
+            return (
+              <span key={s} className="flex items-center gap-1">
+                {i > 0 && <span className="text-muted-light text-[10px]">›</span>}
+                <span className={cn('text-[10px]', done ? 'text-primary-dark font-medium' : 'text-muted-light')}>
+                  {FLOW_LABEL[s]}
+                </span>
+              </span>
+            )
+          })}
+        </div>
+        {history.length > 0 && (
+          <button
+            onClick={() => setOpenHistory((v) => !v)}
+            className="ml-auto text-[10px] text-muted hover:text-text-secondary underline decoration-dotted"
+          >
+            流转记录 {history.length} 条
+          </button>
+        )}
+      </div>
+
+      {(flow?.next_actions ?? []).length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-border">
+          <span className="text-[10px] text-muted">下一步</span>
+          {(flow?.next_actions ?? []).filter((na) => na.allowed !== false).map((na) => (
+            <button
+              key={na.to}
+              disabled={busy === na.to}
+              onClick={() => go(na.to)}
+              title={`${na.description}｜需要角色：${na.required_roles.join('/')}`}
+              className={cn(
+                'text-[10px] rounded-[3px] border px-1.5 py-0.5 transition-colors',
+                'border-border text-text-secondary hover:border-primary hover:text-primary',
+                busy === na.to && 'opacity-60 pointer-events-none',
+              )}
+            >
+              {busy === na.to ? '处理中…' : na.action}
+            </button>
+          ))}
+        </div>
+      )}
+      {err && <div className="mt-1.5 text-[11px] text-danger">{err}</div>}
+      {openHistory && history.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-border space-y-1">
+          {history.map((h) => (
+            <div key={h.id} className="flex flex-wrap items-baseline gap-x-2 text-[11px]">
+              <span className="font-mono text-muted-light">{h.created_at.slice(5, 16).replace('T', ' ')}</span>
+              <span className="text-text-secondary">
+                {h.from_label ? `${h.from_label} → ` : ''}{h.to_label}
+              </span>
+              <span className="text-muted">{h.action}</span>
+              <span className="text-muted-light ml-auto">{h.actor}（{h.role}）</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

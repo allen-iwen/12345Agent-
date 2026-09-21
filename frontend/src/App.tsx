@@ -6,6 +6,7 @@ import { api } from './lib/api'
 import { cn } from './lib/utils'
 import { Workbench } from './pages/Workbench'
 import { KnowledgePage } from './pages/KnowledgePage'
+import { BoardPage } from './pages/BoardPage'
 
 export default function App() {
   return (
@@ -21,7 +22,13 @@ function Shell() {
     <div className="h-full flex flex-col">
       <TopBar route={loc.pathname} />
       <div className="flex-1 min-h-0">
-        {loc.pathname.startsWith('/knowledge') ? <KnowledgePage /> : <Workbench />}
+        {loc.pathname.startsWith('/knowledge') ? (
+          <KnowledgePage />
+        ) : loc.pathname.startsWith('/board') ? (
+          <BoardPage />
+        ) : (
+          <Workbench />
+        )}
       </div>
     </div>
   )
@@ -36,6 +43,7 @@ function TopBar({ route }: { route: string }) {
 
   const tabs = [
     { to: '/', label: '工作台' },
+    { to: '/board', label: '流转看板' },
     { to: '/knowledge', label: '知识库' },
   ]
 
@@ -53,7 +61,9 @@ function TopBar({ route }: { route: string }) {
 
       <nav className="flex items-stretch -mb-px">
         {tabs.map((t) => {
-          const active = t.to === '/' ? !route.startsWith('/knowledge') : route.startsWith(t.to)
+          const active = t.to === '/'
+            ? !route.startsWith('/knowledge') && !route.startsWith('/board')
+            : route.startsWith(t.to)
           return (
             <Link
               key={t.to}
