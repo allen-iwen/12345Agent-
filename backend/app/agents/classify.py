@@ -100,12 +100,56 @@ def run(
                 "reason": str(c.get("reason", "")),
             }
         )
+
+    # ---- System One 决策模型（可选，默认关闭）：Jev 给出类别分布与置信度 ----
+    # 分工：判断用决策模型（校准概率 + 置信度门控），写作仍由生成模型负责（reason 文案）。
+    decision_info: dict | None = None
+    needs_human = bool(data.get("needs_human_judgment", False))
+    judgment_note = str(data.get("judgment_note", "")).strip()
+    try:
+        from app.services import decision, decision_case
+
+        if decision.enabled():
+            vsum = [v.get("summary", "") for v in (vision_signals or []) if isinstance(v, dict)]
+            dec = decision_case.classify_only(raw_text, work_order, vsum)
+            if dec.get("available"):
+                dec_code = dec.get("category_code")
+                gate = dec.get("gate")
+                agreement = bool(dec_code) and dec_code == code
+                decision_info = {
+                    "provider": dec.get("provider"),
+                    "model": dec.get("model"),
+                    "choice": dec_code,
+                    "choice_name": dec.get("category_name"),
+                    "confidence": dec.get("confidence"),
+                    "gate": gate,
+                    "probabilities": (dec.get("answers", {}).get("category") or {}).get("probabilities"),
+                    "agreement_with_llm": agreement,
+                    "llm_choice": code,
+                    "input_tokens": (dec.get("usage") or {}).get("input_tokens"),
+                    "cost_usd": dec.get("cost_usd"),
+                }
+                if gate == "auto" and dec_code:
+                    # 高置信度：采用决策模型结论（类别由校准概率决定）
+                    code = dec_code if dec_code != "other" else None
+                    name = dec.get("category_name")
+                elif gate == "human":
+                    needs_human = True
+                    judgment_note = (judgment_note + "；" if judgment_note else "") + \
+                        f"决策模型置信度偏低（{dec.get('confidence')}），建议人工确认事项类别"
+                elif not agreement and dec_code:
+                    judgment_note = (judgment_note + "；" if judgment_note else "") + \
+                        f"决策模型倾向于「{dec.get('category_name')}」，与生成模型结论不一致，请人工复核"
+    except Exception:  # noqa: BLE001 - 决策模型不可用不影响既有分类
+        decision_info = None
+
     return Classification(
         category_code=code,
         category_name=str(name) if name else None,
         confidence=max(0.0, min(1.0, float(data.get("confidence", 0.0) or 0.0))),
         reason=str(data.get("reason", "")).strip(),
         candidates=candidates,
-        needs_human_judgment=bool(data.get("needs_human_judgment", False)),
-        judgment_note=str(data.get("judgment_note", "")).strip(),
+        needs_human_judgment=needs_human,
+        judgment_note=judgment_note,
+        decision=decision_info,
     )

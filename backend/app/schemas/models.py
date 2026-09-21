@@ -56,6 +56,10 @@ class Classification(BaseModel):
         description="职责交叉/多类并存/信息不足时为 true，提示工作人员人工判断",
     )
     judgment_note: str = Field(default="", description="需要人工判断的具体原因")
+    decision: Optional[dict] = Field(
+        default=None,
+        description="System One 决策模型结论（Jev）：类别分布/置信度/门控/与生成模型是否一致",
+    )
 
 
 # ---------- 承办单位推荐 ----------

@@ -79,6 +79,18 @@ class Settings(BaseSettings):
     deadline_workdays_only: bool = True  # 是否按工作日计算一般件时限
     holidays_path: Path = BACKEND_ROOT / "data" / "dispatch" / "holidays.json"
 
+    # ---- System One 决策模型（Jev / TypeSafe）：用带类型的校准概率做判断 ----
+    # 契约：POST {base}/v1/systemone  {state, model, questions} → {model, answers{概率}, usage}
+    # 获取 Key：typesafe.ai 候补名单（console.typesafe.ai → API Keys）；亦经 Vercel AI Gateway（typesafe-ai/jev）
+    decision_provider: str = "none"  # typesafe | vercel | none
+    decision_base_url: str = "https://api.typesafe.ai"
+    decision_api_key: str = ""
+    decision_model: str = "jev-latest"
+    decision_timeout_s: int = 20
+    decision_enabled: bool = False  # 是否让决策模型参与链路判断（关闭时完全走现有逻辑）
+    decision_high_conf: float = 0.9  # ≥ 高阈值：可直接采用
+    decision_low_conf: float = 0.5  # < 低阈值：转人工判断（不采用）
+
 
 @lru_cache
 def get_settings() -> Settings:
