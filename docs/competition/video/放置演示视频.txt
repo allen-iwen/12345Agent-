@@ -1,0 +1,1 @@
+﻿把录制好的 3-5 分钟演示视频（mp4）放到本目录，然后重跑 backend/scripts/package_semifinal.py，脚本会自动收进提交包。
