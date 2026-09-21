@@ -52,7 +52,12 @@ SYSTEM = """你是芜湖市 12345 政务服务热线的"转派推荐"复核专�
   "agrees_with_rule": boolean}"""
 
 
-def run(work_order: WorkOrder, classification: Classification, raw_text: str) -> Routing:
+def run(
+    work_order: WorkOrder,
+    classification: Classification,
+    raw_text: str,
+    vision_signals: list[dict] | None = None,
+) -> Routing:
     settings = get_settings()
     rules_block = "承办单位职责规则：未录入"
     if settings.department_rules_path.exists():
@@ -85,10 +90,21 @@ def run(work_order: WorkOrder, classification: Classification, raw_text: str) ->
         anchor_lines.append(f"  - [{e['type']}] {e['source']}：{e['detail']}")
     anchor_block = "规则引擎判定（请复核）：\n" + "\n".join(anchor_lines)
 
+    vision_block = "现场照片证据：无"
+    if vision_signals:
+        vlines = ["现场照片证据（视觉模型结论，可作派单与急件判断参考）："]
+        for i, v in enumerate(vision_signals, 1):
+            if not v:
+                continue
+            vlines.append(f"- 照片{i}：隐患={v.get('hazard_type')}｜严重程度={v.get('severity')}｜摘要={v.get('summary')}")
+        if len(vlines) > 1:
+            vision_block = "\n".join(vlines)
+
     user = (
         anchor_block + "\n\n"
         + rules_block + "\n\n"
         + history_block + "\n\n"
+        + vision_block + "\n\n"
         "标准化工单：\n" + work_order.model_dump_json(ensure_ascii=False) + "\n\n"
         "事项分类：\n" + classification.model_dump_json(ensure_ascii=False) + "\n\n"
         "群众诉求原文：\n" + raw_text + "\n\n"

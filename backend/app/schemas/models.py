@@ -150,6 +150,10 @@ class Case(BaseModel):
         default=None,
         description="支柱五：办理时限倒计时（到期时刻/剩余时长/临期超期状态/依据条款，只读）",
     )
+    attachments: list[dict] = Field(
+        default_factory=list,
+        description="证据附件（图片/音频）及其视觉分析结论（只读）",
+    )
     agent_seconds: Optional[int] = Field(
         default=None,
         description="智能体节点累计耗时（秒，来自白盒轨迹，只读）",
@@ -162,6 +166,10 @@ class Case(BaseModel):
 class CreateCaseRequest(BaseModel):
     text: str = Field(min_length=4, description="群众诉求原文（来电转写或文本录入）")
     source_channel: str = "直接来电（呼入）"
+    attachment_ids: list[str] = Field(
+        default_factory=list,
+        description="已暂存的证据附件 id 列表（图片/音频），图片的视觉结论将注入链路",
+    )
 
 
 class ReviewAction(BaseModel):

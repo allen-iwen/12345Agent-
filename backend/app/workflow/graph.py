@@ -85,6 +85,7 @@ class CaseState(TypedDict, total=False):
     raw_text: str
     source_channel: str
     clarification_context: list[str]
+    vision_signals: list[dict] | None
     understanding: dict | None
     work_order: dict | None
     classification: dict | None
@@ -137,7 +138,7 @@ def node_classify(state: CaseState) -> dict:
         "work_order": state.get("work_order"),
     }) as t:
         wo = WorkOrder(**state["work_order"])
-        cls = classify.run(wo, state["raw_text"])
+        cls = classify.run(wo, state["raw_text"], vision_signals=state.get("vision_signals"))
         out = cls.model_dump()
         t.done(out)
     return {"classification": out}
@@ -154,10 +155,10 @@ def node_route(state: CaseState) -> dict:
     }) as t:
         wo = WorkOrder(**state["work_order"])
         cls = Classification(**state["classification"])
-        routing = route.run(wo, cls, state["raw_text"])
-        # 支柱二：急件识别与办理时限分级（规则式，随转派节点产出）
+        routing = route.run(wo, cls, state["raw_text"], vision_signals=state.get("vision_signals"))
+        # 支柱二：急件识别与办理时限分级（规则式 + 图片证据升级，随转派节点产出）
         und = Understanding(**state["understanding"]) if state.get("understanding") else None
-        urg = urgency_svc.assess(state["raw_text"], und, wo, cls)
+        urg = urgency_svc.assess(state["raw_text"], und, wo, cls, vision_signals=state.get("vision_signals"))
         out = routing.model_dump()
         t.done({**out, "urgency": urg})
     return {"routing": out, "urgency": urg}
@@ -250,8 +251,12 @@ def run_chain(
     raw_text: str,
     source_channel: str = "直接来电（呼入）",
     clarification_context: list[str] | None = None,
+    vision_signals: list[dict] | None = None,
 ) -> dict:
-    """跑完整链路，停在人工审核中断点（或 needs_clarification / failed）。"""
+    """跑完整链路，停在人工审核中断点（或 needs_clarification / failed）。
+
+    vision_signals：图片证据的视觉结论，注入分类/派单提示词并用于急件分级升级。
+    """
     graph = get_graph()
     config = {"configurable": {"thread_id": case_id}}
     initial: CaseState = {
@@ -259,6 +264,7 @@ def run_chain(
         "raw_text": raw_text,
         "source_channel": source_channel,
         "clarification_context": clarification_context or [],
+        "vision_signals": vision_signals or None,
         "status": "processing",
         "error": None,
     }

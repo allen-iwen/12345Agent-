@@ -6,6 +6,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException
 
+from app.repositories import attachments as attachments_repo
 from app.repositories import cases as repository
 from app.schemas.models import (
     Case,
@@ -53,6 +54,22 @@ def _to_case(row: dict, *, enrich: bool = True) -> Case:
     except Exception:  # noqa: BLE001 - QC 失败不影响案件返回
         logger.warning("qc failed", exc_info=True)
     case.urgency = assessment.get("urgency") or None
+    # 证据附件（图片/音频）及其视觉结论
+    try:
+        case.attachments = [
+            {
+                "id": a["id"],
+                "kind": a["kind"],
+                "filename": a["filename"],
+                "mime": a["mime"],
+                "size": a["size"],
+                "vision": a.get("vision"),
+                "created_at": a["created_at"],
+            }
+            for a in attachments_repo.list_by_case(case.case_id)
+        ]
+    except Exception:  # noqa: BLE001
+        logger.warning("attachments load failed", exc_info=True)
     # 支柱五：办理时限倒计时（纯规则，成本极低，列表与详情都返回，供队列临期/超期角标）
     try:
         case.deadline = deadline_svc.compute(
@@ -91,8 +108,20 @@ def create_case(req: CreateCaseRequest) -> Case:
     case_id = uuid.uuid4().hex
     thread_id = case_id
     repository.create_case(case_id, thread_id, req.text, req.source_channel, "processing")
+    # 关联证据附件并取出视觉结论（图片证据注入链路）
+    vision_signals: list[dict] = []
     try:
-        values = run_chain(case_id, req.text, req.source_channel)
+        if req.attachment_ids:
+            linked = attachments_repo.link_to_case(req.attachment_ids, case_id)
+            logger.info("case %s linked %d attachments", case_id, linked)
+        for a in attachments_repo.list_by_case(case_id):
+            v = a.get("vision")
+            if a["kind"] == "image" and v and v.get("available"):
+                vision_signals.append(v)
+    except Exception:  # noqa: BLE001 - 附件问题不阻断建单
+        logger.warning("attachment link failed", exc_info=True)
+    try:
+        values = run_chain(case_id, req.text, req.source_channel, vision_signals=vision_signals or None)
     except Exception as exc:  # noqa: BLE001
         logger.exception("create_case workflow error")
         repository.save_state(case_id, status="failed", error=str(exc))

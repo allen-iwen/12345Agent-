@@ -31,8 +31,17 @@ def _rules() -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def assess(raw_text: str, understanding=None, work_order=None, classification=None) -> dict:
-    """识别紧急等级、建议时限与即时处置动作，返回可审计的分级结论。"""
+def assess(
+    raw_text: str,
+    understanding=None,
+    work_order=None,
+    classification=None,
+    vision_signals: list[dict] | None = None,
+) -> dict:
+    """识别紧急等级、建议时限与即时处置动作，返回可审计的分级结论。
+
+    vision_signals：图片证据的视觉结论；存在人类安全隐患判定时直接升级为特急。
+    """
     rules = _rules()
     parts = [raw_text or ""]
     if work_order is not None:
@@ -78,6 +87,26 @@ def assess(raw_text: str, understanding=None, work_order=None, classification=No
 
     if urgent_flag and _LEVEL_ORDER.get(best["level"], 0) < 1:
         best["level"], best["label"] = "紧急", "紧急件（理解节点判定紧急）"
+
+    # 图片证据升级：视觉模型判定存在人身安全隐患时，等级不低于特急
+    vision_hazard = [
+        v for v in (vision_signals or [])
+        if v and v.get("hazard") and v.get("severity") in ("特急", "紧急")
+    ]
+    if vision_hazard and _LEVEL_ORDER.get(best["level"], 0) < _LEVEL_ORDER.get(
+        max((v.get("severity") for v in vision_hazard), key=lambda x: _LEVEL_ORDER.get(x, 0)), 0
+    ):
+        top = max((v.get("severity") for v in vision_hazard), key=lambda x: _LEVEL_ORDER.get(x, 0))
+        lv = next((x for x in rules.get("levels", []) if x["level"] == top), None)
+        best = {
+            "level": top,
+            "label": (lv or {}).get("label", top) + "（图片证据判定）",
+            "limit_hint": (lv or {}).get("limit_hint", ""),
+            "actions": (lv or {}).get("actions", []),
+            "signals": best.get("signals", []) + [
+                "图片证据：" + "、".join(v.get("hazard_type", "") for v in vision_hazard)
+            ],
+        }
 
     legal = rules.get("legal_basis", {})
     basis = {

@@ -28,7 +28,29 @@ SYSTEM = """你是芜湖市 12345 政务服务热线的"事项分类"专员。
   "needs_human_judgment": boolean, "judgment_note": str}"""
 
 
-def run(work_order: WorkOrder, raw_text: str, exclude_source_ids: tuple[str, ...] = ()) -> Classification:
+def _vision_block(vision_signals: list[dict] | None) -> str:
+    """图片证据块：视觉模型对现场照片的结构化结论。"""
+    if not vision_signals:
+        return "现场照片证据：无"
+    lines = ["现场照片证据（视觉模型结论，仅作参考；与文本冲突时综合判断）："]
+    for i, v in enumerate(vision_signals, 1):
+        if not v:
+            continue
+        lines.append(
+            f"- 照片{i}：隐患={v.get('hazard_type')}｜严重程度={v.get('severity')}｜"
+            f"摘要={v.get('summary')}｜置信度={v.get('confidence')}"
+        )
+        if v.get("elements"):
+            lines.append("  可见要素：" + "、".join(f"{k}={val}" for k, val in v["elements"].items()))
+    return "\n".join(lines) if len(lines) > 1 else "现场照片证据：无"
+
+
+def run(
+    work_order: WorkOrder,
+    raw_text: str,
+    exclude_source_ids: tuple[str, ...] = (),
+    vision_signals: list[dict] | None = None,
+) -> Classification:
     catalog = retrieval.catalog_brief()
     similar = retrieval.search_similar(
         f"{work_order.title} {work_order.event_description}", top_k=3, exclude_source_ids=exclude_source_ids
@@ -48,6 +70,7 @@ def run(work_order: WorkOrder, raw_text: str, exclude_source_ids: tuple[str, ...
         "标准化工单：\n" + work_order.model_dump_json(ensure_ascii=False) + "\n\n"
         "群众诉求原文：\n" + raw_text + "\n\n"
         + similar_block + "\n\n"
+        + _vision_block(vision_signals) + "\n\n"
         "请输出分类 JSON。"
     )
     data = chat_json(SYSTEM, user)
