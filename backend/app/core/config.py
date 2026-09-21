@@ -84,7 +84,8 @@ class Settings(BaseSettings):
     # ---- System One 决策模型：用带类型的校准概率做判断 ----
     # 契约：POST {base}/v1/systemone  {state, model, questions} → {model, answers{概率}, usage}
     # 获取 Key：typesafe.ai 候补名单（console.typesafe.ai → API Keys）；亦经 Vercel AI Gateway（typesafe-ai/jev）
-    decision_provider: str = "none"  # laya（本地开源）| typesafe | vercel | none
+    # openrouter 通道：base=https://openrouter.ai，路径 /api/alpha/decisions，模型 ~typesafe/jev-latest
+    decision_provider: str = "none"  # laya（本地开源）| typesafe | vercel | openrouter | none
     decision_base_url: str = "https://api.typesafe.ai"
     decision_api_key: str = ""
     decision_model: str = "jev-latest"
@@ -99,6 +100,9 @@ class Settings(BaseSettings):
     # 选项 token 预算：官方指出高基数 Choice 会因每选项 token 不足而失准，可上调（0=用默认 256）
     decision_laya_head_max_len: int = 0
     decision_laya_max_len: int = 0
+    # 配额守卫：额度耗尽/限流/过载后进入冷却期，期间回退规则与本地路径
+    decision_degrade_seconds: int = 900  # 冷却时长（秒）
+    decision_max_calls: int = 0  # 进程内调用上限（0=不限；评测/演示可设上限防刷爆额度）
 
 
 @lru_cache

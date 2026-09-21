@@ -1,0 +1,96 @@
+{
+  "samples": 18,
+  "device": "cpu",
+  "results": {
+    "zh_zh": {
+      "hits": 3,
+      "avg_ms": 2551.2,
+      "errors": [
+        [
+          "交通运输",
+          "public_service"
+        ],
+        [
+          "公共安全",
+          "public_service"
+        ],
+        [
+          "农林水土",
+          "urban_rural_construction"
+        ],
+        [
+          "农林水土",
+          "public_service"
+        ],
+        [
+          "劳动和社会保障",
+          "public_service"
+        ],
+        [
+          "劳动和社会保障",
+          "public_service"
+        ]
+      ]
+    },
+    "en_en": {
+      "hits": 4,
+      "avg_ms": 543.4,
+      "errors": [
+        [
+          "交通运输",
+          "other"
+        ],
+        [
+          "公共安全",
+          "other"
+        ],
+        [
+          "公共服务",
+          "other"
+        ],
+        [
+          "农林水土",
+          "other"
+        ],
+        [
+          "农林水土",
+          "other"
+        ],
+        [
+          "劳动和社会保障",
+          "other"
+        ]
+      ]
+    },
+    "zh_en": {
+      "hits": 8,
+      "avg_ms": 571.2,
+      "errors": [
+        [
+          "劳动和社会保障",
+          "public_service"
+        ],
+        [
+          "劳动和社会保障",
+          "market_regulation"
+        ],
+        [
+          "卫生健康",
+          "economic_trade"
+        ],
+        [
+          "卫生健康",
+          "other"
+        ],
+        [
+          "城乡建设",
+          "agriculture_forestry_water_land"
+        ],
+        [
+          "城市管理",
+          "economic_trade"
+        ]
+      ]
+    }
+  }
+}

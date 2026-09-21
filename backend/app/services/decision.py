@@ -13,6 +13,12 @@
   resp: {model, answers: {id: {type, noul|choice|score, probabilities?, confidence?}}, usage}
   GET  {base}/v1/models
 
+OpenRouter 通道（provider=openrouter）走的是**另一个路径**，须显式配置：
+  POST https://openrouter.ai/api/alpha/decisions   body 与上面一致
+  模型 id：~typesafe/jev-latest（别名，始终指向最新版；实测 typesafe/jev-1.13-20260917）
+  差异：① 路径非 /v1/systemone；② 不在 /v1/models 列表；③ 不能走 /v1/chat/completions（404）；
+        ④ usage.cost 返回实际计费，可直接用作成本口径。
+
 三类问题原语：
 - noul  是/否 → 返回 noul（为「是」的概率）
 - choice 从选项中选一 → choice + probabilities + confidence
@@ -26,6 +32,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 import requests
@@ -45,6 +52,14 @@ def _cfg() -> dict:
         # Vercel AI Gateway：模型 id 形如 typesafe-ai/jev（网关按模型路由到 TypeSafe）
         return {"provider": "vercel", "base_url": "https://ai-gateway.vercel.sh",
                 "api_key": s.decision_api_key, "model": s.decision_model or "typesafe-ai/jev"}
+    if s.decision_provider == "openrouter":
+        # OpenRouter alpha 决策接口：与 TypeSafe 同源模型（~typesafe/jev-latest），
+        # 但**路径不同**——不是 {base}/v1/systemone，而是 {base}/api/alpha/decisions。
+        # 该模型不出现在 OpenRouter /v1/models 列表，也不能走 /v1/chat/completions。
+        return {"provider": "openrouter", "base_url": s.decision_base_url.rstrip("/"),
+                "api_key": s.decision_api_key,
+                "model": s.decision_model or "~typesafe/jev-latest",
+                "path": "/api/alpha/decisions"}
     if s.decision_provider == "typesafe":
         return {"provider": "typesafe", "base_url": s.decision_base_url.rstrip("/"),
                 "api_key": s.decision_api_key, "model": s.decision_model or "jev-latest"}
@@ -199,9 +214,49 @@ def _ask_laya(state: str | dict | list, questions: dict[str, dict], cfg: dict) -
     }
 
 
+# ---------------- 配额守卫（欠费 / 限流 / 过载 → 自动降级）----------------
+# 生产约束：JEV 等外部决策模型走的是 key 的**不重置终身额度**，一旦归零必须立刻降级，
+# 否则每个案件都会白白多一次失败请求（拖慢链路，且掩盖真实故障）。
+
+_degraded_until = 0.0
+_degrade_reason = ""
+_call_count = 0
+_DEGRADE_CODES = {402, 429, 529, 403}
+_DEGRADE_KEYWORDS = ("quota", "insufficient", "rate limit", "credit", "balance", "exceeded")
+
+
+def _mark_degraded(reason: str) -> None:
+    global _degraded_until, _degrade_reason
+    secs = get_settings().decision_degrade_seconds
+    _degraded_until = time.time() + secs
+    _degrade_reason = reason
+    logger.warning("决策模型进入降级冷却 %ds：%s（期间回退规则与本地路径）", secs, reason)
+
+
+def degraded() -> dict:
+    remaining = max(0.0, _degraded_until - time.time())
+    return {"degraded": remaining > 0, "remaining_s": round(remaining), "reason": _degrade_reason}
+
+
+def reset_degrade() -> None:
+    """手动清除降级状态（充值/换 key 后调用，或重启进程）。"""
+    global _degraded_until, _degrade_reason
+    _degraded_until = 0.0
+    _degrade_reason = ""
+
+
+def usage_stats() -> dict:
+    return {"calls_this_process": _call_count, **degraded()}
+
+
 def ask(state: str | dict | list, questions: dict[str, dict], model: str | None = None) -> dict:
-    """发起一次 System One 评估；失败或未配置时返回 available=False（调用方回退）。"""
+    """发起一次 System One 评估；失败或未配置时返回 available=False（调用方回退）。
+
+    含**配额守卫**：额度耗尽/限流/过载/区域限制时进入冷却期，期间直接返回不可用，
+    由调用方自然回退到规则引擎与本地路径（JEV 走的是 key 的不重置终身额度，归零后必须降级）。
+    """
     cfg = _cfg()
+    global _call_count
     if cfg.get("provider") == "laya":
         return _ask_laya(state, questions, cfg)
     if not (cfg.get("api_key") and cfg.get("base_url")):
@@ -209,8 +264,18 @@ def ask(state: str | dict | list, questions: dict[str, dict], model: str | None 
     if not questions:
         return {"available": False, "note": "questions 为空"}
 
+    dg = degraded()
+    if dg["degraded"]:
+        return {"available": False,
+                "note": f"决策模型处于降级冷却期（剩余 {dg['remaining_s']}s）：{dg['reason']}；已回退规则与本地路径"}
+
     s = get_settings()
-    url = cfg["base_url"] + "/v1/systemone"
+    if s.decision_max_calls and _call_count >= s.decision_max_calls:
+        _mark_degraded(f"已达进程内调用上限 {s.decision_max_calls} 次（保护性熔断）")
+        return {"available": False, "note": f"决策模型已达调用上限 {s.decision_max_calls}，本进程内不再调用"}
+
+    _call_count += 1
+    url = cfg["base_url"] + cfg.get("path", "/v1/systemone")
     body = {"model": model or cfg["model"], "state": state, "questions": questions}
     try:
         resp = requests.post(
@@ -227,6 +292,19 @@ def ask(state: str | dict | list, questions: dict[str, dict], model: str | None 
         note = f"{cfg['provider']} HTTP {resp.status_code}: {resp.text[:160]}"
         if resp.status_code in (429, 529):
             note += "（限流/过载，建议指数退避重试）"
+        elif resp.status_code == 401:
+            note += "（凭据无效或已撤销，检查 DECISION_API_KEY）"
+        elif resp.status_code == 402:
+            note += "（额度耗尽，需充值或调高 key 的 spend limit；重试无效）"
+        elif resp.status_code == 403:
+            note += "（区域限制：该模型在当前出口地区不可用）"
+        elif resp.status_code == 404:
+            note += "（端点/模型不存在：检查 DECISION_BASE_URL 与 provider 的路径是否配套）"
+        elif resp.status_code == 400:
+            note += "（请求体非法：questions 的 type 只能是 noul / choice / score）"
+        # 配额守卫：这些情形继续重试无意义，直接降级冷却，避免把链路拖慢/刷爆额度
+        if resp.status_code in _DEGRADE_CODES or any(k in resp.text.lower() for k in _DEGRADE_KEYWORDS):
+            _mark_degraded(f"HTTP {resp.status_code}：{note[:120]}")
         logger.warning("决策模型返回错误：%s", note)
         return {"available": False, "note": note}
 
@@ -257,6 +335,12 @@ def ask(state: str | dict | list, questions: dict[str, dict], model: str | None 
     model_version = payload.get("model") or body["model"]
     logger.info("决策模型应答 model=%s questions=%d input_tokens=%s",
                 model_version, len(norm), usage.get("input_tokens"))
+    # 成本：OpenRouter 直接在 usage.cost 返回实际计费（优先采用）；
+    # 其余 provider 按 TypeSafe 官方价目折算（输入 $0.042/百万 token，输出免费）。
+    if usage.get("cost") is not None:
+        cost_usd = round(float(usage["cost"]), 8)
+    else:
+        cost_usd = round(float(usage.get("input_tokens") or 0) * 0.042 / 1_000_000, 8)
     return {
         "available": True,
         "provider": cfg["provider"],
@@ -264,6 +348,5 @@ def ask(state: str | dict | list, questions: dict[str, dict], model: str | None 
         "requested_model": body["model"],
         "answers": norm,
         "usage": usage,
-        # 成本参考：输入 $0.042/百万 token，输出免费（用于赛事材料的成本对比）
-        "cost_usd": round(float(usage.get("input_tokens") or 0) * 0.042 / 1_000_000, 8),
+        "cost_usd": cost_usd,
     }

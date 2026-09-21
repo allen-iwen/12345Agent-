@@ -28,6 +28,7 @@ CHECKS: list[tuple[str, list[str], bool, str]] = [
     ("服务级 · 办理时限", [PY, "-u", "scripts/verify_deadline.py"], False, r"时限倒计时验证"),
     ("服务级 · 第二模型交叉复核", [PY, "-u", "scripts/verify_cross_check.py"], False, r"交叉复核验证"),
     ("服务级 · 决策模型信号接入（Jev）", [PY, "-u", "scripts/verify_decision_points.py"], False, r"接入验证"),
+    ("服务级 · 决策模型配额守卫", [PY, "-u", "scripts/verify_decision_guard.py"], False, r"守卫验证"),
     ("服务级 · 图片证据受理机制", [PY, "-u", "scripts/verify_image_intake.py"], False, r"图片受理端到端"),
     ("接口级 · 流转状态机", [PY, "-u", "scripts/verify_flow.py"], False, r"流转状态机验证"),
     ("接口级 · wiki 词条", [PY, "-u", "scripts/verify_wiki.py"], False, r"wiki 验证"),

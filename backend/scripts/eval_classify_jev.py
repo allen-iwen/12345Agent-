@@ -60,6 +60,7 @@ def main() -> int:
     latencies: list[float] = []
     tokens = 0
     cost = 0.0
+    served_model = ""  # 服务端实际返回的模型版本（别名会漂移，阈值须与之绑定）
     errors: list[tuple[str, str, str]] = []
 
     for i, r in enumerate(rows, 1):
@@ -85,6 +86,7 @@ def main() -> int:
         pred = out.get("category_name") or "（无法归类）"
         ok = pred == r["category"]
         correct += ok
+        served_model = served_model or (out.get("model") or "")
         gates[out.get("gate", "confirm")] = gates.get(out.get("gate", "confirm"), 0) + 1
         latencies.append(dt)
         tk = (out.get("usage") or {}).get("input_tokens") or 0
@@ -105,14 +107,18 @@ def main() -> int:
     print(f"{'生成模型基线（LLM 链）':<28}{LLM_BASELINE_ACC:>9.1%}{'（约 5-9s/案）':>12}{'—':>12}{'—':>14}")
     print(f"{'Jev 决策模型（本评测）':<28}{acc:>9.1%}{avg_ms:>10.0f}ms{tokens:>12}{'$' + format(cost, '.6f'):>14}")
     print(f"\n基线口径：{LLM_BASELINE_NOTE}")
-    print(f"评测样本：{n} 条｜Jev 模型版本：{st['model']}")
+    print(f"评测样本：{n} 条｜Jev 模型版本：{served_model or st['model']}"
+          + (f"（别名 {st['model']}）" if served_model and served_model != st["model"] else ""))
     print(f"置信度门控分布：auto（可自动采用）{gates['auto']}｜confirm（人工确认）{gates['confirm']}｜human（转人工）{gates['human']}")
 
-    out_path = Path("data/eval/jev_classify_result.json")
+    # 按 provider 分文件，避免不同通道的结果互相覆盖（laya / openrouter / typesafe 各留一份）
+    out_path = Path(f"data/eval/{st['provider']}_classify_result.json")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps({
         "samples": n,
-        "model": st["model"],
+        "provider": st["provider"],
+        "model": served_model or st["model"],
+        "requested_model": st["model"],
         "accuracy": round(acc, 4),
         "avg_latency_ms": round(avg_ms, 1),
         "input_tokens": tokens,

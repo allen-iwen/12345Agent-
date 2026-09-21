@@ -1,0 +1,20 @@
+{
+  "samples": 18,
+  "provider": "openrouter",
+  "model": "typesafe/jev-1.13-20260917",
+  "requested_model": "~typesafe/jev-latest",
+  "accuracy": 1.0,
+  "avg_latency_ms": 603.3,
+  "input_tokens": 47126,
+  "cost_usd": 0.001979,
+  "gate_distribution": {
+    "auto": 16,
+    "confirm": 2,
+    "human": 0
+  },
+  "llm_baseline": {
+    "accuracy": 1.0,
+    "note": "提示词链 + 生成模型（含 12 类辨析目录），LOO 100%"
+  },
+  "errors": []
+}

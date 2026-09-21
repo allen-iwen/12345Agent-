@@ -60,16 +60,18 @@ COMPLIANT = [
 ]
 
 
-def hazard_probs() -> list[tuple[str, bool, float]]:
+def hazard_probs() -> tuple[list[tuple[str, bool, float]], str]:
     q = {"safety_hazard": decision.noul(
         "诉求中是否包含可能危害人身安全的情形（如燃气泄漏、电线坠落、井盖缺失、消防通道堵塞、危房）？",
         {"true": "描述了具体的即时人身安全风险", "false": "仅为生活不便、服务纠纷、咨询建议或一般环境问题"})}
     out = []
+    served = ""
     for text, expect in HAZARD:
         r = decision.ask({"诉求原文": text}, q)
+        served = served or (r.get("model") or "")
         p = ((r.get("answers") or {}).get("safety_hazard") or {}).get("value") if r.get("available") else None
         out.append((text, expect, float(p) if p is not None else -1.0))
-    return out
+    return out, served
 
 
 def reply_probs() -> tuple[list[dict], list[dict]]:
@@ -108,7 +110,7 @@ def main() -> int:
         return 2
 
     t0 = time.monotonic()
-    hp = hazard_probs()
+    hp, served = hazard_probs()
     print(f"\n=== A. 安全隐患 Noul（{len(HAZARD)} 条中文）===")
     print(f"{'期望':<6}{'p(隐患)':>9}  {'判定':<6}文本")
     for text, expect, p in hp:
@@ -121,43 +123,70 @@ def main() -> int:
     print(f"  隐患组均值 {sum(pos) / len(pos):.3f}｜非隐患组均值 {sum(neg) / len(neg):.3f}")
     th, acc = best_threshold(pos, neg, True)
     print(f"  同集拟合最优阈值 {th}：{acc:.1%}（乐观估计）")
+    if served:
+        print(f"  服务端实际版本：{served}" + (f"（配置别名 {st['model']}）" if served != st["model"] else ""))
 
     vp, cp = reply_probs()
     lat = (time.monotonic() - t0) / (len(hp) + len(vp) + len(cp)) * 1000
+
+    def _f(v) -> str:
+        return "n/a" if v is None else f"{v:.2f}"
+
     print(f"\n=== B. 答复合规（10 违规 / 10 合规）===")
     for (label, text), a in zip(VIOLATIONS, vp):
-        print(f"  违规[{label:<12}] over={a['over']:.2f} addr={a['addr']:.2f} priv={a['priv']:.2f} | {text[:26]}")
+        print(f"  违规[{label:<12}] over={_f(a['over'])} addr={_f(a['addr'])} priv={_f(a['priv'])} | {text[:26]}")
     for a in cp:
-        print(f"  合规            over={a['over']:.2f} addr={a['addr']:.2f} priv={a['priv']:.2f}")
+        print(f"  合规            over={_f(a['over'])} addr={_f(a['addr'])} priv={_f(a['priv'])}")
 
-    def dim(name: str, key: str, higher_pos: bool):
+    def dim(name: str, key: str, higher_pos: bool) -> dict:
         p = [a[key] for a in vp if a[key] is not None]
         n = [a[key] for a in cp if a[key] is not None]
+        if not p or not n:
+            print(f"  {name}：无可比数据（违规 {len(p)} 条 / 合规 {len(n)} 条）")
+            return {"name": name, "gap": -1.0, "acc": 0.0, "pos_mean": None, "neg_mean": None}
+        pm, nm = sum(p) / len(p), sum(n) / len(n)
         th, acc = best_threshold(p, n, higher_pos)
-        print(f"  {name}：违规均值 {sum(p) / len(p):.3f}｜合规均值 {sum(n) / len(n):.3f}"
+        print(f"  {name}：违规均值 {pm:.3f}｜合规均值 {nm:.3f}"
               f"｜同集最优阈值 {th} → {acc:.1%}")
+        return {"name": name, "gap": abs(pm - nm), "acc": acc,
+                "pos_mean": round(pm, 4), "neg_mean": round(nm, 4), "threshold": th}
 
     print("\n  分维度可分性（同一数据集内拟合阈值，乐观）")
-    dim("过度承诺 Score(越高越违规)", "over", True)
-    dim("隐私泄露 Noul(越高越违规)", "priv", True)
-    dim("正面回应 Noul(越低越违规)", "addr", False)
-    print(f"\n  平均延迟 {lat:.0f} ms/次（CPU）")
+    dims = [
+        dim("过度承诺 Score(越高越违规)", "over", True),
+        dim("隐私泄露 Noul(越高越违规)", "priv", True),
+        dim("正面回应 Noul(越低越违规)", "addr", False),
+    ]
+    print(f"\n  平均延迟 {lat:.0f} ms/次（{'CPU 本地推理' if st['provider'] == 'laya' else '云 API 调用'}）")
 
     print("\n=== 结论（依据以上数据）===")
-    print(f"  1) 12 类中文 Choice 零样本：22.2%（官方亦声明 base 零样本接近随机）→ 不可用于分类")
+    if st["provider"] == "laya":
+        print("  1) 12 类中文 Choice 零样本：22.2%（官方亦声明 base 零样本接近随机）→ 不可用于分类")
+    else:
+        print(f"  1) 12 类中文 Choice 零样本：见 data/eval/{st['provider']}_classify_result.json"
+              "（本脚本只覆盖 Noul / Score 信号，不重复测分类）")
     print(f"  2) 安全隐患 Noul：0.5 阈值 {hc / len(hp):.1%}；两组均值差异 "
           f"{abs(sum(pos) / len(pos) - sum(neg) / len(neg)):.2f}")
-    print(f"  3) 答复合规：Score 维度分布重叠 → 序数原语最弱（与官方说明一致）；Noul 可用于提示")
+    valid = [d for d in dims if d["gap"] >= 0]
+    if valid:
+        weakest = min(valid, key=lambda d: d["gap"])
+        strongest = max(valid, key=lambda d: d["gap"])
+        print(f"  3) 答复合规三维：组间均值差最大「{strongest['name']}」{strongest['gap']:.2f}"
+              f"（同集最优 {strongest['acc']:.1%}）；最小「{weakest['name']}」{weakest['gap']:.2f}"
+              f"→ 该维度信号最弱")
     print(f"  4) 规则引擎在同一合规集上：召回 100% / 误报 0% → 生产判断仍以规则+生成模型为主")
 
-    out = Path("data/eval/laya_signals_result.json")
+    # 按 provider 分文件，避免不同通道的结果互相覆盖
+    out = Path(f"data/eval/{st['provider']}_signals_result.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({
-        "provider": st["provider"], "model": st["model"],
+        "provider": st["provider"], "model": served or st["model"],
+        "requested_model": st["model"],
         "hazard": {"accuracy_at_0.5": round(hc / len(hp), 4),
                    "pos_mean": round(sum(pos) / len(pos), 4), "neg_mean": round(sum(neg) / len(neg), 4),
                    "items": [{"text": t, "expected": e, "p": p} for t, e, p in hp]},
         "compliance": {"violations": vp, "compliant": cp},
+        "compliance_dims": dims,
         "avg_latency_ms": round(lat, 1),
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\n结果已保存：{out}")
