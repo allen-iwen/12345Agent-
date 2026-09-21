@@ -7,6 +7,7 @@ import { cn } from './lib/utils'
 import { Workbench } from './pages/Workbench'
 import { KnowledgePage } from './pages/KnowledgePage'
 import { BoardPage } from './pages/BoardPage'
+import { AdminPage } from './pages/AdminPage'
 
 export default function App() {
   return (
@@ -26,6 +27,8 @@ function Shell() {
           <KnowledgePage />
         ) : loc.pathname.startsWith('/board') ? (
           <BoardPage />
+        ) : loc.pathname.startsWith('/admin') ? (
+          <AdminPage />
         ) : (
           <Workbench />
         )}
@@ -45,6 +48,7 @@ function TopBar({ route }: { route: string }) {
     { to: '/', label: '工作台' },
     { to: '/board', label: '流转看板' },
     { to: '/knowledge', label: '知识库' },
+    { to: '/admin', label: '账号与审计' },
   ]
 
   return (
@@ -62,7 +66,7 @@ function TopBar({ route }: { route: string }) {
       <nav className="flex items-stretch -mb-px">
         {tabs.map((t) => {
           const active = t.to === '/'
-            ? !route.startsWith('/knowledge') && !route.startsWith('/board')
+            ? !route.startsWith('/knowledge') && !route.startsWith('/board') && !route.startsWith('/admin')
             : route.startsWith(t.to)
           return (
             <Link

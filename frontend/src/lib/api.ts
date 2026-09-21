@@ -234,9 +234,21 @@ export interface SimilarHit {
   score: number
 }
 
+// ---- 会话令牌（轻量 RBAC）：仅存浏览器本地，随请求头携带 ----
+const TOKEN_KEY = 'dsh_token'
+export const auth = {
+  token: () => localStorage.getItem(TOKEN_KEY) || '',
+  set: (t: string) => localStorage.setItem(TOKEN_KEY, t),
+  clear: () => localStorage.removeItem(TOKEN_KEY),
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = auth.token()
   const res = await fetch(BASE + path, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     ...init,
   })
   if (!res.ok) {
@@ -247,13 +259,39 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* ignore */
     }
-    throw new Error(`API ${res.status}: ${detail}`)
+    throw new Error(`${res.status === 401 ? '未登录或会话已过期：' : ''}${detail}`)
   }
   return res.json() as Promise<T>
 }
 
 export const api = {
   health: () => req<{ status: string }>('/health'),
+  // 认证与审计（轻量 RBAC）
+  authStatus: () => req<{
+    enabled: boolean
+    users: number
+    audit_records: number
+    roles: Record<string, string>
+    session_ttl_hours: number
+  }>('/api/auth/status'),
+  me: () => req<{ actor: string; role: string; role_label: string; username: string; rbac_enabled: boolean }>('/api/auth/me'),
+  login: (username: string, password: string) =>
+    req<{ token: string; expires_at: string; user: { username: string; display_name: string; role: string; role_label: string; org: string } }>(
+      '/api/auth/login',
+      { method: 'POST', body: JSON.stringify({ username, password }) },
+    ),
+  logout: () => req<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
+  listUsers: () => req<{ id: number; username: string; display_name: string; role: string; role_label: string; org: string; active: number }[]>('/api/auth/users'),
+  createUser: (payload: { username: string; password: string; display_name?: string; role: string; org?: string }) =>
+    req<{ ok: boolean; id: number; username: string }>('/api/auth/users', { method: 'POST', body: JSON.stringify(payload) }),
+  auditLog: (params: { limit?: number; target_id?: string; actor?: string } = {}) => {
+    const qs = new URLSearchParams()
+    if (params.limit) qs.set('limit', String(params.limit))
+    if (params.target_id) qs.set('target_id', params.target_id)
+    if (params.actor) qs.set('actor', params.actor)
+    const suffix = qs.toString() ? `?${qs}` : ''
+    return req<{ total: number; records: { id: number; actor: string; role: string; action: string; target_type: string; target_id: string; detail: string; ip: string; created_at: string }[] }>(`/api/auth/audit${suffix}`)
+  },
   createCase: (text: string, source_channel = '直接来电（呼入）', attachment_ids: string[] = []) =>
     req<CaseView>('/api/cases', { method: 'POST', body: JSON.stringify({ text, source_channel, attachment_ids }) }),
   // 证据附件（现场照片 → 视觉分析）
