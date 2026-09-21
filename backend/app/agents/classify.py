@@ -143,6 +143,20 @@ def run(
     except Exception:  # noqa: BLE001 - 决策模型不可用不影响既有分类
         decision_info = None
 
+    # ---- 第二模型交叉复核（可选，默认关闭）：独立判断 + 分歧记录 ----
+    cross_check: dict | None = None
+    try:
+        from app.services import review
+
+        if review.configured():
+            sec = review.classify_second_opinion(work_order, raw_text)
+            cross_check = review.compare(code, sec)
+            if cross_check.get("agreement") is False:
+                needs_human = True
+                judgment_note = (judgment_note + "；" if judgment_note else "") + str(cross_check.get("note", ""))
+    except Exception:  # noqa: BLE001 - 复核异常不影响主链路
+        cross_check = None
+
     return Classification(
         category_code=code,
         category_name=str(name) if name else None,
@@ -152,4 +166,5 @@ def run(
         needs_human_judgment=needs_human,
         judgment_note=judgment_note,
         decision=decision_info,
+        cross_check=cross_check,
     )

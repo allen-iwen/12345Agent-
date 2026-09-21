@@ -14,6 +14,7 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 _client: OpenAI | None = None
+_clients: dict[str, OpenAI] = {}
 
 
 def get_client() -> OpenAI:
@@ -22,6 +23,18 @@ def get_client() -> OpenAI:
         settings = get_settings()
         _client = OpenAI(api_key=settings.llm_api_key, base_url=settings.llm_base_url)
     return _client
+
+
+def get_client_for(base_url: str | None = None, api_key: str | None = None) -> OpenAI:
+    """按 (base_url, api_key) 取客户端（用于第二模型复核：可指向不同厂商/局域网服务）。"""
+    if not base_url and not api_key:
+        return get_client()
+    settings = get_settings()
+    key = f"{base_url or settings.llm_base_url}|{api_key or settings.llm_api_key}"
+    if key not in _clients:
+        _clients[key] = OpenAI(api_key=api_key or settings.llm_api_key,
+                               base_url=base_url or settings.llm_base_url)
+    return _clients[key]
 
 
 def _repair_json_literals(content: str) -> str:
@@ -89,6 +102,9 @@ def chat_json(
     model: str | None = None,
     temperature: float = 0.2,
     max_tokens: int = 16384,
+    base_url: str | None = None,
+    api_key: str | None = None,
+    json_mode: bool | None = None,
 ) -> dict:
     """调用大模型并解析 JSON 对象返回。
 
@@ -97,9 +113,9 @@ def chat_json(
     不要在调用点随手压小该值。
     """
     settings = get_settings()
-    client = get_client()
+    client = get_client_for(base_url, api_key)
     kwargs: dict[str, Any] = {}
-    if settings.llm_json_mode:
+    if settings.llm_json_mode if json_mode is None else json_mode:
         kwargs["response_format"] = {"type": "json_object"}
     if settings.llm_disable_thinking:
         # vLLM 部署的 Qwen 系模型：关闭内置思考链（避免思考 token 占用与格式漂移）

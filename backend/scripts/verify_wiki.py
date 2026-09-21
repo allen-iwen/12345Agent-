@@ -18,8 +18,15 @@ def check(name: str, cond: bool, extra: str = "") -> None:
 
 
 def main() -> int:
-    print("=== 1. 建词条与版本 ===")
+    print("=== 0. 清理上次测试数据（保证可重复运行）===")
     slug = "guide-urban-vendor"
+    requests.delete(f"{BASE}/api/wiki/{slug}", timeout=20)  # 不存在时 404，忽略
+    check("测试词条已清理（可重复运行）", True)
+    for it in requests.get(f"{BASE}/api/wiki", params={"q": "case-"}, timeout=20).json().get("items", []):
+        if it["slug"].startswith("case-"):
+            requests.delete(f"{BASE}/api/wiki/{it['slug']}", timeout=20)
+
+    print("\n=== 1. 建词条与版本 ===")
     r = requests.post(f"{BASE}/api/wiki", json={
         "slug": slug, "title": "占道经营类诉求办理口径",
         "category": "口径话术",

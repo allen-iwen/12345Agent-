@@ -60,6 +60,10 @@ class Classification(BaseModel):
         default=None,
         description="System One 决策模型结论（Jev）：类别分布/置信度/门控/与生成模型是否一致",
     )
+    cross_check: Optional[dict] = Field(
+        default=None,
+        description="第二模型交叉复核记录：是否一致、双方结论、分歧说明",
+    )
 
 
 # ---------- 承办单位推荐 ----------
