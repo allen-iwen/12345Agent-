@@ -154,6 +154,9 @@ class Case(BaseModel):
         default_factory=list,
         description="证据附件（图片/音频）及其视觉分析结论（只读）",
     )
+    flow_state: str = Field(default="", description="流转状态（工单在业务流程中的位置）")
+    flow_label: str = Field(default="", description="流转状态中文名")
+    flow_history: list[dict] = Field(default_factory=list, description="流转记录（详情接口返回）")
     agent_seconds: Optional[int] = Field(
         default=None,
         description="智能体节点累计耗时（秒，来自白盒轨迹，只读）",

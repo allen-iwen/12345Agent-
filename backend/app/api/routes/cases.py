@@ -8,6 +8,8 @@ from fastapi import APIRouter, HTTPException
 
 from app.repositories import attachments as attachments_repo
 from app.repositories import cases as repository
+from app.repositories import flow as flow_repo
+from app.services import workflow_state
 from app.schemas.models import (
     Case,
     CaseSectionReview,
@@ -53,6 +55,15 @@ def _to_case(row: dict, *, enrich: bool = True) -> Case:
         case.qc_checks = qc.run_qc(case)
     except Exception:  # noqa: BLE001 - QC 失败不影响案件返回
         logger.warning("qc failed", exc_info=True)
+    # 流转状态（工单在业务流程中的位置）
+    try:
+        fstate = flow_repo.get_state(case.case_id) or "received"
+        case.flow_state = fstate
+        case.flow_label = workflow_state.label(fstate)
+        if enrich:
+            case.flow_history = flow_repo.history(case.case_id)
+    except Exception:  # noqa: BLE001
+        logger.warning("flow state load failed", exc_info=True)
     case.urgency = assessment.get("urgency") or None
     # 证据附件（图片/音频）及其视觉结论
     try:
@@ -141,6 +152,14 @@ def create_case(req: CreateCaseRequest) -> Case:
         error=values.get("error"),
         completed=status == "completed",
     )
+    # 流转状态自动推进（仅系统触发）：链路完成 → 已分类（待审核派单）
+    try:
+        auto = workflow_state.auto_flow_state(status)
+        if auto and (flow_repo.get_state(case_id) or "received") != auto:
+            flow_repo.set_state(case_id, auto, actor="system", role="system",
+                                action="智能体链路完成", note=f"链路状态：{status}")
+    except Exception:  # noqa: BLE001 - 流转推进失败不影响建单
+        logger.warning("flow auto advance failed", exc_info=True)
     row = repository.get_case(case_id)
     assert row is not None
     return _to_case(row)
@@ -211,6 +230,12 @@ def review_case(case_id: str, action: ReviewAction) -> Case:
             config,
         )
         repository.set_completed(case_id)
+        # 流转推进：人工放行 → 审核通过（记入流转日志，含操作者与角色）
+        try:
+            flow_repo.set_state(case_id, "reviewed", actor=action.note or "工作人员",
+                                role="reviewer", action="最终放行", note=action.note or "工作人员最终审核通过")
+        except Exception:  # noqa: BLE001
+            logger.warning("flow advance on final review failed", exc_info=True)
     else:
         section = action.section
         # review 分节名与数据库列名映射（reply -> reply_draft）
