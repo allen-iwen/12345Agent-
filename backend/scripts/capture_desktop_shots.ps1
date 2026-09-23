@@ -1,16 +1,24 @@
-﻿# 截取桌面上的 AI 工具窗口，作为「在桌面上使用 AI 工具」的补充证据。
+﻿# 截取桌面上的 AI 工具窗口，作为「在桌面上使用 AI 工具」的证据。
 #
-# 用 Win32 PrintWindow + PW_RENDERFULLCONTENT 直接让目标窗口渲染自身，
-# 不需要把窗口切到前台，避免打断使用者、也不会把无关窗口拍进去。
-# 若某个窗口拒绝离屏渲染（图片全黑/纯白），自动退回「置前 + 屏幕区域抓取」。
+# 关键技术点（都是踩坑后定下来的）：
+#   1. 用 PrintWindow 让目标窗口渲染自身，只得到该窗口的内容，
+#      压在它上方的置顶窗口不会被一起拍进去（屏幕区域截图做不到这一点）。
+#   2. 被遮挡的 Chromium 窗口会暂停渲染，PrintWindow 拿到的是旧帧。
+#      加 -Live 时先用 SWP_NOACTIVATE 把窗口提到最前——它可见后才会重绘，
+#      而 NOACTIVATE 保证不夺走使用者当前窗口的键盘焦点。
+#   3. 同名窗口可能有多个（主窗 + 提示窗），取面积最大的那个。
+#   4. 文件名含中文时 GDI+ 保存会报「一般性错误」，因此先写 ASCII 临时路径再复制。
+#   5. 最小化窗口的矩形是 160x28，据此识别并跳过。
 #
 # 用法：
-#   pwsh -File scripts/capture_desktop_shots.ps1
-#   pwsh -File scripts/capture_desktop_shots.ps1 -Patterns "DeepSeek Harness","PowerShell"
+#   powershell -File scripts\capture_desktop_shots.ps1
+#   powershell -File scripts\capture_desktop_shots.ps1 -Live
+#   powershell -File scripts\capture_desktop_shots.ps1 -Patterns "DeepSeek Harness","Visual Studio Code"
 param(
-    [string[]]$Patterns = @("DeepSeek Harness", "PowerShell", "Visual Studio Code"),
+    [string[]]$Patterns = @("DeepSeek Harness"),
     [string]$OutDir = "D:\workspace\12345工单热线\12345agent\docs\competition\shots",
-    [switch]$AllowForeground
+    [switch]$Live,
+    [int]$MinWidth = 1200
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,98 +31,94 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Drawing;
 
-public class WinCap {
-    public delegate bool EnumProc(IntPtr hWnd, IntPtr lParam);
+public class WinShot {
+    public delegate bool EnumProc(IntPtr h, IntPtr p);
     [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc cb, IntPtr p);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
     [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
-    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
-    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
 
-    public static List<IntPtr> Find(string needle) {
-        var found = new List<IntPtr>();
+    // 取面积最大的同名可见窗口，避免命中提示窗等小窗口
+    public static IntPtr FindBiggest(string needle, out string report) {
+        IntPtr best = IntPtr.Zero; int bestArea = 0; var found = new List<string>();
         EnumWindows(delegate(IntPtr h, IntPtr p) {
             if (!IsWindowVisible(h)) return true;
-            var sb = new StringBuilder(400);
-            GetWindowText(h, sb, 400);
+            var sb = new StringBuilder(400); GetWindowText(h, sb, 400);
             string t = sb.ToString();
-            if (t.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) found.Add(h);
+            if (t.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) {
+                RECT r; GetWindowRect(h, out r);
+                int w = r.R - r.L, ht = r.B - r.T;
+                found.Add(t + " [" + w + "x" + ht + "]");
+                if (w * ht > bestArea) { bestArea = w * ht; best = h; }
+            }
             return true;
         }, IntPtr.Zero);
-        return found;
+        report = found.Count == 0 ? "(无匹配)" : string.Join(" | ", found.ToArray());
+        return best;
     }
 
-    // 抓取窗口：先离屏渲染，失败则由调用方决定是否置前
-    public static string Grab(IntPtr h, string path, bool foreground) {
+    // 提到最前但不激活：窗口可见后会恢复渲染，同时不抢键盘焦点
+    public static void RaiseNoActivate(IntPtr h) {
+        SetWindowPos(h, (IntPtr)(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);
+    }
+
+    public static string ShotSelf(IntPtr h, string path) {
         RECT r; GetWindowRect(h, out r);
         int w = r.R - r.L, ht = r.B - r.T;
-        if (w <= 0 || ht <= 0) return "empty-rect";
-        if (foreground) {
-            ShowWindow(h, 9);           // SW_RESTORE
-            SetForegroundWindow(h);
-            System.Threading.Thread.Sleep(700);
-        }
+        if (w <= 0 || ht <= 0) return "0x0";
         using (var bmp = new Bitmap(w, ht))
         using (var g = Graphics.FromImage(bmp)) {
-            bool ok = false;
-            if (!foreground) {
-                IntPtr hdc = g.GetHdc();
-                ok = PrintWindow(h, hdc, 2);   // PW_RENDERFULLCONTENT
-                g.ReleaseHdc(hdc);
-            }
-            if (!ok) {
-                g.CopyFromScreen(r.L, r.T, 0, 0, new Size(w, ht));
-            }
+            IntPtr hdc = g.GetHdc();
+            PrintWindow(h, hdc, 2);          // PW_RENDERFULLCONTENT
+            g.ReleaseHdc(hdc);
             bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);
         }
-        return "ok";
-    }
-
-    // 判定是否拍到真实内容：统计采样点的颜色种类与亮度跨度
-    public static string Judge(string path) {
-        using (var bmp = new Bitmap(path)) {
-            var colors = new HashSet<int>();
-            int min = 255, max = 0;
-            for (int y = 0; y < bmp.Height; y += Math.Max(1, bmp.Height / 60))
-            for (int x = 0; x < bmp.Width; x += Math.Max(1, bmp.Width / 60)) {
-                Color c = bmp.GetPixel(x, y);
-                colors.Add(c.ToArgb());
-                int lum = (c.R + c.G + c.B) / 3;
-                if (lum < min) min = lum;
-                if (lum > max) max = lum;
-            }
-            return string.Format("colors={0} lumRange={1}", colors.Count, max - min);
-        }
+        return w + "x" + ht;
     }
 }
 "@
 
 if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir | Out-Null }
+$tmpRoot = Join-Path $env:TEMP ("winshot_" + [guid]::NewGuid().ToString("N").Substring(0, 8))
+New-Item -ItemType Directory -Force -Path $tmpRoot | Out-Null
 
 $index = 0
+$exitCode = 0
 foreach ($pat in $Patterns) {
-    $handles = [WinCap]::Find($pat)
-    if ($handles.Count -eq 0) { Write-Output "  [MISS] 未找到窗口：$pat"; continue }
-    $h = $handles[0]
+    $report = ""
+    $h = [WinShot]::FindBiggest($pat, [ref]$report)
+    Write-Output "  匹配窗口：$report"
+    if ($h -eq [IntPtr]::Zero) { Write-Output "  [MISS] 未找到窗口：$pat"; $exitCode = 1; continue }
+
+    if ($Live) {
+        [WinShot]::RaiseNoActivate($h)
+        Start-Sleep -Milliseconds 2500      # 等 Chromium 重绘
+    }
+
     $index++
     $safe = ($pat -replace '[^A-Za-z0-9]', '')
     $name = "desktop_$('{0:d2}' -f $index)_$safe.png"
-    $path = Join-Path $OutDir $name
+    $tmpFile = Join-Path $tmpRoot "$index.png"
 
-    $rc = [WinCap]::Grab($h, $path, $false)
-    $judge = [WinCap]::Judge($path)
-    # 离屏渲染常对部分窗口返回空白，此时才考虑置前抓取
-    if ($AllowForeground -and ($judge -match "colors=(\d+)" -and [int]$Matches[1] -lt 12)) {
-        Write-Output "  [retry] $pat 离屏渲染结果偏空白，改用置前抓取"
-        $rc = [WinCap]::Grab($h, $path, $true)
-        $judge = [WinCap]::Judge($path)
+    $size = [WinShot]::ShotSelf($h, $tmpFile)
+    $img = [System.Drawing.Image]::FromFile($tmpFile)
+    $w = $img.Width; $img.Dispose()
+
+    if ($w -lt $MinWidth) {
+        Write-Output "  [SKIP] $pat 尺寸 $size 小于 $MinWidth（窗口可能已最小化，请先恢复窗口）"
+        Remove-Item $tmpFile -Force -ErrorAction SilentlyContinue
+        $exitCode = 1
+        continue
     }
-    $kb = [int]((Get-Item $path).Length / 1024)
-    Write-Output ("  [OK  ] {0}  ->  {1}  ({2} KB, {3})" -f $pat, $name, $kb, $judge)
+    Copy-Item $tmpFile (Join-Path $OutDir $name) -Force
+    $hash = (Get-FileHash (Join-Path $OutDir $name)).Hash.Substring(0, 12)
+    Write-Output ("  [OK  ] {0}  ->  {1}  ({2}, hash={3})" -f $pat, $name, $size, $hash)
 }
 
+Remove-Item $tmpRoot -Recurse -Force -ErrorAction SilentlyContinue
 Write-Output "输出目录：$OutDir"
-Write-Output "提示：本脚本只抓取匹配到的窗口本身，不会把整个桌面（含聊天工具等无关内容）拍进去。"
+Write-Output "说明：只抓取匹配到的窗口自身；-Live 会把它提到最前以恢复渲染，但不抢键盘焦点。"
+exit $exitCode

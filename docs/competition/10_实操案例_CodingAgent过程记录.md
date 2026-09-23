@@ -7,18 +7,18 @@
 
 - Coding Agent：**DeepSeek Harness (DSH)**（会话预设 `cordis`，驱动模型 `deepseek-v4-flash`）
 - 工作区：`D:\workspace\12345工单热线`
-- 时间跨度：2026-09-03 — 2026-09-23，跨 7 个工作日（09-03 16:21 → 09-23 16:58）
-- 规模：**59 轮对话 / 1560 个执行步 / 1805 次工具调用**
-- 其中：命令执行 638 次、文件编辑 579 次、新建文件 218 次、读取 184 次、内容检索 50 次
-- 覆盖文件 **214 个**；开发者原始指令 **95 条**；任务拆解计划 **23 版**
-- 期间捕获工具失败 **226 次**（程序异常 58、命令非零退出 113、自建校验未过 5），模型层自动重试 36 次，均在当轮定位并修复
+- 时间跨度：2026-09-03 — 2026-09-23，跨 7 个工作日（09-03 16:21 → 09-23 17:21）
+- 规模：**61 轮对话 / 1590 个执行步 / 1837 次工具调用**
+- 其中：命令执行 656 次、文件编辑 584 次、新建文件 219 次、读取 185 次、内容检索 50 次
+- 覆盖文件 **215 个**；开发者原始指令 **97 条**；任务拆解计划 **23 版**
+- 期间捕获工具失败 **232 次**（程序异常 58、命令非零退出 118、自建校验未过 5），模型层自动重试 36 次，均在当轮定位并修复
 
 会话记录构成（原始事件类型）：
 
 | 会话 | 记录文件 | 事件数 | 开发者指令 | 起止 |
 | --- | --- | ---: | ---: | --- |
 | `18f2fb28` | session.v3.jsonl.zstd | 722 | 3 | 09-21 11:17 → 09-21 12:09 |
-| `43acc70b` | session.v3.jsonl.zstd | 8165 | 90 | 09-03 16:21 → 09-23 16:58 |
+| `43acc70b` | session.v3.jsonl.zstd | 8331 | 92 | 09-03 16:21 → 09-23 17:21 |
 | `7a540b72` | session.jsonl.zstd | 23495 | 16 | 09-03 16:21 → 09-05 09:20 |
 
 取证说明：Agent 的续接会话会把上一段会话的历史整体重放一遍，直接统计记录条数会虚高。
@@ -45,33 +45,33 @@ Agent 在整个过程中自主维护了 23 版任务清单（`todo_write` 事件
 
 | 时间 | 轮次 | 条目数 | 已完成 | 新增/变化的条目 |
 | --- | ---: | ---: | ---: | --- |
-| 09-03 16:43 | — | 9 | 2 | 前端 npm install + build；克隆 12345agent 基础仓库；创建 backend/.env 并运行 verify_env.py 等 9 项 |
+| 09-03 16:43 | — | 9 | 2 | 启动前后端并验证 /health、/docs、UI；用 Python 3.11 创建 backend venv 并安装依赖；下载官方数据集并运行 prepare_dataset.py 等 9 项 |
 | 09-03 16:47 | — | 9 | 4 | 创建 backend/.env（待填真实 Key）；下载官方数据集并运行 prepare_dataset.py（待用户提供）；用 Python 3.11 创建 backend venv 并安装依赖（后台进行中） |
 | 09-03 17:34 | — | 9 | 5 | 用 Python 3.11 创建 backend venv 并安装依赖；创建 backend/.env + verify_env.py 通过 |
-| 09-04 12:18 | — | 7 | 3 | 后端核心链路（5 节点 + LangGraph + 审核中断 + SQLite + API）；补充自动化测试（离线 mock LLM）并跑 pytest；API E2E 验证（创建→分节审核→modify→final 完成） 等 7 项 |
-| 09-04 15:26 | — | 8 | 6 | 前端构建 + 后端联通验收；项目 README 补上运行说明；验收报告 + 后续事项（讯飞 ASR/MCP/PPT） 等 4 项 |
+| 09-04 12:18 | — | 7 | 3 | 前端构建 + 浏览器验收；补充自动化测试（离线 mock LLM）并跑 pytest；前端工作台（录入+链路展示+审核交互） 等 7 项 |
+| 09-04 15:26 | — | 8 | 6 | 自动化测试（pytest：health + workflow 离线 + 真实 E2E）；验收报告 + 后续事项（讯飞 ASR/MCP/PPT）；前端构建 + 后端联通验收 等 4 项 |
 | 09-04 15:26 | — | 8 | 7 | （状态推进） |
-| 09-04 15:53 | — | 9 | 0 | 主工作台重写（坐席员视角：从接听到到到到归档）；UI 壳子重做（shadcn/ui + Tailwind 设计系统、布局框架）；获奖级作品创意设计（产品定位、页面架构、信息架构、交互流程、设计语言）） 等 9 项 |
-| 09-05 09:36 | — | 9 | 8 | 前端：相似工单参考面板（BM25 + 一键复制官方口径）；前端：知识库页（分类过滤 + 检索 + 展开）；前端：轨迹抽屉（白盒：输入/输出/耗时/多执行历史） 等 9 项 |
-| 09-05 09:39 | — | 8 | 0 | P2 演示案例库（12 类一键演示）；P0 录音输入：funasr 本地 ASR + /api/asr + 前端上传，18 条真录音验收；P2 工单质量检查（规则式 QC） 等 8 项 |
-| 09-05 09:55 | — | 8 | 8 | P2 演示案例库（6 类一键填充）；总验收（E2E + pytest + 构建）+ README 更新；P1 政策依据引用：8 份真实法规入库 + 回复引用 + QC 双重校验 等 5 项 |
-| 09-05 10:56 | — | 4 | 0 | D 构建提交，测 SSH 推送；A 转写降噪整理层（transcript_clean + asr 路由 + 前端整理稿/原文切换）；C 全流程重跑验收（含新检查项） 等 4 项 |
+| 09-04 15:53 | — | 9 | 0 | 主工作台重写（坐席员视角：从接听到到到到归档）；交互打磨（键盘快捷键、相似工单一键复用、状态动效）；获奖级作品创意设计（产品定位、页面架构、信息架构、交互流程、设计语言）） 等 9 项 |
+| 09-05 09:36 | — | 9 | 8 | 前端：相似工单参考面板（BM25 + 一键复制官方口径）；后端：trace 持久化（tracing.py + graph 节点包裹 + /api/runs）；接入极智 MCP（等 URL + 凭证） 等 9 项 |
+| 09-05 09:39 | — | 8 | 0 | P0 录音输入：funasr 本地 ASR + /api/asr + 前端上传，18 条真录音验收；P2 工单质量检查（规则式 QC）；P1 回访话术：reply 节点输出 预回复 + 回访话术 等 8 项 |
+| 09-05 09:55 | — | 8 | 8 | P0 录音输入：funasr SenseVoice 本地 ASR + /api/asr + 前端上传，真实录音验收；P2 工单质量检查（10 项规则 QC）；总验收（E2E + pytest + 构建）+ README 更新 等 5 项 |
+| 09-05 10:56 | — | 4 | 0 | A 转写降噪整理层（transcript_clean + asr 路由 + 前端整理稿/原文切换）；D 构建提交，测 SSH 推送；C 全流程重跑验收（含新检查项） 等 4 项 |
 | 09-05 11:30 | — | 4 | 4 | （状态推进） |
-| 09-20 17:47 | — | 8 | 0 | 端到端验证：真实案例跑通 + 评测脚本回归 + pytest；派单规则数据 dispatch_rules.json（区划表/专业直派/类别兜底/退回风险）；dispatch.py 三层决策服务 + 依据链 等 8 项 |
-| 09-21 10:12 | — | 7 | 0 | data/dispatch/holidays.json + services/deadline.py 时限计算；集成：qc 追加合规检查、Case 字段、API 暴露、governance 督办；MiniMax Key 写入 backend/.env（仅本地）+ .env.example 占位符 等 7 项 |
-| 09-21 10:25 | — | 12 | 5 | 阻塞：MiniMax Key 认证 401（疑似转录错误），待你重发；阶段D：双模型复核 + wiki 词条 + 督办面板；阶段E：平台发布开服 + PPT/视频 + 提交 等 12 项 |
-| 09-21 10:34 | — | 8 | 2 | 阶段B：真实隐患照片集（≥16 张）+ eval_vision.py 准确率评测；阶段B：前端图片上传（相机/相册）+ 视觉结论展示；阶段B：MiniMax 视觉接入 + 附件层 + 链路注入（端到端 16/16） 等 5 项 |
-| 09-21 11:21 | — | 8 | 3 | 阶段B：MiniMax 视觉 + 附件层 + 图片录入界面（端到端已验证）；阶段C-下半：流转看板界面 + 轻量 RBAC与审计；阶段B-补：公开许可隐患图集 + eval_vision.py 准确率评测（子代理进行中） 等 5 项 |
-| 09-21 14:01 | — | 9 | 5 | 阶段A：答复合规审查 + 时限倒计时（含界面）；阶段B：MiniMax 视觉 + 附件层 + 图片录入界面；按险种定级取代模型 severity（因为实测不稳定） 等 6 项 |
-| 09-21 14:18 | — | 8 | 4 | 阶段C：流转状态机 + 看板 API + 看板界面 + 详情流转条 + 轻量 RBAC 与审计；阶段D-3：wiki 前端词条页 + 督办面板；阶段D-2：双模型交叉复核 + 分歧统计 等 7 项 |
-| 09-21 14:29 | — | 7 | 4 | 阶段A：答复合规审查 + 时限倒计时；阶段C：流转状态机 + 看板（API+界面）+ RBAC 与审计；阶段D：双模型交叉复核 + wiki 词条 + 督办面板 等 5 项 |
-| 09-21 15:02 | — | 8 | 5 | 阶段D：双模型交叉复核 + wiki + 督办面板；等外部输入：极智平台账号与用户指引 → 平台主链路复现与发布；等你录制：3–5 分钟演示视频（脚本已就绪） 等 7 项 |
-| 09-23 16:46 | — | 4 | 0 | 用 selenium 自动截取应用四个界面截图；从 ~/.dsh/sessions 导出真实会话过程记录（指令/任务拆解/多轮调试/代码交付）；生成 PDF（真实文本层），并用 pypdf 回验提取结果不是脚本代码 等 4 项 |
+| 09-20 17:47 | — | 8 | 0 | route 智能体规则锚定改造 + graph/API 打通；派单规则数据 dispatch_rules.json（区划表/专业直派/类别兜底/退回风险）；schema + 仓库迁移（routing 扩展、assessment 列） 等 8 项 |
+| 09-21 10:12 | — | 7 | 0 | 集成：qc 追加合规检查、Case 字段、API 暴露、governance 督办；services/reply_audit.py 合规审查服务；data/dispatch/holidays.json + services/deadline.py 时限计算 等 7 项 |
+| 09-21 10:25 | — | 12 | 5 | 阶段A：答复合规规则库 + reply_audit 服务（召回100%/误报0%）；阶段E：平台发布开服 + PPT/视频 + 提交；阻塞：DeepSeek 余额耗尽（402），待你决定正式演示用哪个模型 等 12 项 |
+| 09-21 10:34 | — | 8 | 2 | 阶段B：真实隐患照片集（≥16 张）+ eval_vision.py 准确率评测；阶段C：流转状态机看板 + 轻量 RBAC；阶段B：MiniMax 视觉接入 + 附件层 + 链路注入（端到端 16/16） 等 5 项 |
+| 09-21 11:21 | — | 8 | 3 | 阶段B：MiniMax 视觉 + 附件层 + 图片录入界面（端到端已验证）；阶段A：答复合规审查 + 时限倒计时（含界面，均已验证）；阶段C-上半：工单流转状态机 + 看板 API（19/19） 等 5 项 |
+| 09-21 14:01 | — | 9 | 5 | 阶段A：答复合规审查 + 时限倒计时（含界面）；视觉准确率评测：公开许可 16 张标注集 + eval_vision.py（类型 93.8%/有隐患 100%）；按险种定级取代模型 severity（因为实测不稳定） 等 6 项 |
+| 09-21 14:18 | — | 8 | 4 | 阶段B/E：极智平台主链路复现与发布（等平台账号与用户指引）；阶段B：MiniMax 视觉 + 附件层 + 图片录入界面 + 视觉准确率评测；阶段D-1：wiki 知识词条体系（含智能体回写） 等 7 项 |
+| 09-21 14:29 | — | 7 | 4 | 阶段B：MiniMax 视觉 + 附件层 + 图片录入 + 准确率评测；阶段D：双模型交叉复核 + wiki 词条 + 督办面板；阶段C：流转状态机 + 看板（API+界面）+ RBAC 与审计 等 5 项 |
+| 09-21 15:02 | — | 8 | 5 | 等外部输入：TypeSafe Key → Jev 对比评测；阶段B：MiniMax 视觉 + 图片受理 + 准确率评测；阶段E：材料（PPT + 视频脚本 + 打包脚本）与验证报告 等 7 项 |
+| 09-23 16:46 | — | 4 | 0 | 生成 PDF（真实文本层），并用 pypdf 回验提取结果不是脚本代码；用 selenium 自动截取应用四个界面截图；从 ~/.dsh/sessions 导出真实会话过程记录（指令/任务拆解/多轮调试/代码交付） 等 4 项 |
 | 09-23 16:57 | — | 4 | 3 | （状态推进） |
 
 ## 三、Prompt 设计：开发者指令的演进
 
-全程 95 条开发者指令。按序节选（保留原始措辞）：
+全程 97 条开发者指令。按序节选（保留原始措辞）：
 
 1. **09-03 16:24**（1651 字）确保你可以读取下面相关资料，及时和我沟通，然后按飞书文档中说的吧需要做的工作做完，比如MCP的连接之类的，相关的api key你都可以及时和我沟通的； 群公告 本群是「Xbotics AI Agent 上海工作坊」公开咨询群，对所有人开放，欢迎把感兴趣的朋友拉进来。报名、线上说明会与入选通知都会在本群发布。 [图片]  这是什么活动 • 「Xbotics AI Agent 上海工作坊——一天亲手做出12345 热线工单助手：2026 年 9 月 5 日（周六）· 上海模力社区；个人即可报名，现场上限 30 人。 • 不是坐着听课：基于真实的芜湖12345 热线工单场景与极智智能体开发平台，一天…
 2. **09-03 16:24**（390 字）Current runtime context. This snapshot supersedes earlier runtime-context snapshots.  Current DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.  Approval prompts are disabled in this session: actions that require approval are reje…
@@ -168,10 +168,12 @@ Agent 在整个过程中自主维护了 23 版任务清单（`todo_write` 事件
 93. **09-21 18:07**（6795 字）<system-reminder> The available skill catalog changed. This complete catalog replaces every earlier available-skills list in this session:  <available_skills> - `code-review`: 从固定点（commit、branch、tag 或 merge-base）开始，按 Standards（代码是否符合本仓库记录的编码标准？）和 Spec（代码是否符合来源 issue/PRD 的要求？）两个轴线审查变更。两个审查会在并行子代理中运行，…
 94. **09-23 16:19**（245 字）这是收到的反馈：感谢您再次提交申请与补充材料。您提交的附件文档提取出的内容为纯网页预览脚本代码，并未包含实际的项目实操案例正文与过程记录，导致当前无法查阅到您在实际项目中使用 Coding Agent 的具体证据  需要补充  建议重新上传包含完整文本或截图的实操案例材料（如导出为标准 PDF 格式），展示您在真实项目中使用 Coding Agent（如 Cursor、Windsurf、GitHub Copilot 等）进行任务拆解、多轮调试、Prompt 设计或代码交付的完整过程记录
 95. **09-23 16:46**（206 字）background job pwsh-1 (pwsh: Set-Location D:\workspace\12345工单热线\12345agent\frontend npm run build 2>&1 | Select-Object -Last 12) finished [status: completed, exit code: 0]. Read its output with job_output.
+96. **09-23 17:16**（18 字）他还要的是我们使用ai工具的桌面截图
+97. **09-23 17:20**（28 字）你就多截取一些我们当前这个界面的截图实际的工作截图就可以
 
 ## 四、多轮调试：报错 → 定位 → 修复
 
-共捕获工具失败 226 次：程序异常 58 次、命令非零退出 113 次、自建校验未过 5 次；模型层自动重试 36 次。
+共捕获工具失败 232 次：程序异常 58 次、命令非零退出 118 次、自建校验未过 5 次；模型层自动重试 36 次。
 
 下表按「严重度 + 时间顺序」列出报错，以及报错之后同一轮内的下一个动作
 （仅表示 Agent 当时的下一步，用于展示调试回路，不等于该动作一定是根因修复）：
@@ -248,7 +250,7 @@ Agent 在整个过程中自主维护了 23 版任务清单（`todo_write` 事件
 | 09-04 15:39 | 13 | 工具拒绝 | web_search | Error: Insufficient Balance | 执行 List all plugin links on dshfind home page |
 | 09-04 15:57 | 15 | 工具拒绝 | job_kill | Error: job pwsh-30 belongs to another session | 执行 Check who's listening on 8000 and recent python processes |
 | 09-05 09:22 | 17 | 工具拒绝 | write | Error: cannot overwrite existing "D:\workspace\12345工单热线\12345agent\frontend\src\index.css" with | （下一轮继续调试） |
-| … | | | | 其余 156 次见 `agent_case.json` | |
+| … | | | | 其余 162 次见 `agent_case.json` | |
 
 模型层重试（Agent 自动退避重试，保证长任务不中断）：
 
@@ -267,8 +269,8 @@ Agent 在整个过程中自主维护了 23 版任务清单（`todo_write` 事件
 | 故障 | 命中 | 首次出现 | 报错原文（摘自会话记录） |
 | --- | ---: | --- | --- |
 | 编辑定位失配 | 12 | 09-04 11:18 | Error: old_string was not found in "D:\workspace\12345工单热线\12345agent\backend\app\api\routes\cases.py" |
+| SQLite 并发写锁 | 10 | 09-05 14:04 | sqlite3.OperationalError: database is locked |
 | 模型余额不足 | 9 | 09-03 16:52 | Error: Insufficient Balance |
-| SQLite 并发写锁 | 8 | 09-05 14:04 | sqlite3.OperationalError: database is locked |
 | 决策模型降级守卫 | 8 | 09-21 16:17 | [PASS] 标记为降级中 — {'degraded': True, 'remaining_s': 900, 'reason': '测试：HTTP 402 额度耗尽'} |
 | 政策库下载证书 | 6 | 09-05 10:59 | [ERR] 信访工作条例 <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certi |
 | 建表语句与缺表 | 4 | 09-05 13:47 | sqlite3.OperationalError: no such table: call_events |
@@ -280,7 +282,7 @@ Agent 在整个过程中自主维护了 23 版任务清单（`todo_write` 事件
 
 ## 五、代码交付：Agent 实际改动的文件
 
-Agent 通过 `edit`/`write` 工具直接交付代码，累计编辑 579 次、新建 218 次。
+Agent 通过 `edit`/`write` 工具直接交付代码，累计编辑 584 次、新建 219 次。
 改动最集中的文件：
 
 | 文件 | 编辑 | 新建 |
@@ -296,10 +298,10 @@ Agent 通过 `edit`/`write` 工具直接交付代码，累计编辑 579 次、�
 | `backend\app\workflow\graph.py` | 14 | 2 |
 | `backend\app\services\decision.py` | 15 | 1 |
 | `backend\scripts\fetch_policies.py` | 14 | 1 |
+| `backend\scripts\make_case_pdf.py` | 14 | 1 |
 | `README.md` | 14 | 0 |
 | `backend\app\core\config.py` | 12 | 1 |
 | `backend\app\agents\classify.py` | 11 | 2 |
-| `backend\scripts\make_case_pdf.py` | 11 | 1 |
 | `backend\app\services\llm.py` | 10 | 1 |
 | `backend\app\repositories\cases.py` | 10 | 1 |
 | `backend\data\eval\vision\real\_work\assemble.py` | 9 | 1 |
@@ -321,11 +323,11 @@ Agent 通过 `edit`/`write` 工具直接交付代码，累计编辑 579 次、�
 | `backend\app\agents\reply.py` | 3 | 2 |
 | `frontend\src\index.css` | 1 | 4 |
 
-文件类型分布（按交付动作计，共 797 次）：
+文件类型分布（按交付动作计，共 803 次）：
 
 | 类型 | 次数 |
 | --- | ---: |
-| `.py` | 504 |
+| `.py` | 507 |
 | `.tsx` | 156 |
 | `.md` | 33 |
 | `.ts` | 30 |
@@ -334,6 +336,7 @@ Agent 通过 `edit`/`write` 工具直接交付代码，累计编辑 579 次、�
 | `(无扩展名)` | 10 |
 | `.example` | 9 |
 | `.css` | 7 |
+| `.ps1` | 3 |
 | `.txt` | 1 |
 | `.html` | 1 |
 
@@ -341,6 +344,8 @@ Agent 通过 `edit`/`write` 工具直接交付代码，累计编辑 579 次、�
 
 上述改动最终以提交形式落库（`git log`）：
 
+- `bb27207`　09-23 17:18　补充桌面实操截图（回应评审：需要「使用 AI 工具的桌面截图」）
+- `f9253c5`　09-23 16:58　补充「Coding Agent 实操案例」材料（回应评审：附件读不到正文）
 - `9b6609c`　09-21 18:08　打包补齐 08_验证报告 与 09_决策模型评测（技术性/智能性硬证据）
 - `9a442a8`　09-21 18:06　JEV 设为默认 + 四处加固（缓存/阈值/本地兜底/夹具）
 - `bf74792`　09-21 16:18　材料同步：决策模型卡片改为开源+闭源双通道实测（JEV 100%/603ms/.00011 vs laya 22.2%，门控对比，归因实验排除 CPU）
@@ -379,8 +384,6 @@ Agent 通过 `edit`/`write` 工具直接交付代码，累计编辑 579 次、�
 - `159b235`　09-05 13:02　UI 点检修复 + 手动测试案例手册
 - `34dacb3`　09-05 11:35　LLM 预算放宽 + 本地实验模型支持 + 数据目录规范登记
 - `26ffcf8`　09-05 11:30　转写降噪整理层 + 国家法规全文库（36/36 全链路验收通过）
-- `d7a8db3`　09-05 10:55　env 模板：补齐讯飞 WebSocket 听写字段（占位符，真实密钥仅存本机 .env 不入库）
-- `68bc444`　09-05 10:54　README：双引擎 ASR / 政策 RAG / 未诉先办 / 减负账本 / 31 项验收说明
 
 ## 七、逐轮过程明细
 
@@ -444,8 +447,10 @@ Agent 通过 `edit`/`write` 工具直接交付代码，累计编辑 579 次、�
 | 53 | 43acc70b | 09-21 15:55 | 19.3 | 1 | 1 |  |
 | 54 | 43acc70b | 09-21 16:12 | 359.6 | 27 | 5 |  |
 | 55 | 43acc70b | 09-21 17:53 | 891.3 | 41 | 6 |  |
-| 56 | 43acc70b | 09-23 16:19 | — | 107 | 9 |  |
+| 56 | 43acc70b | 09-23 16:19 | 2370.9 | 112 | 10 |  |
+| 57 | 43acc70b | 09-23 17:16 | 147.9 | 24 | 5 |  |
+| 58 | 43acc70b | 09-23 17:20 | — | 3 | 0 |  |
 
 ---
 
-数据文件：`backend/data/eval/agent_case.json`（结构化全量），生成时间 2026-09-23 16:58。
+数据文件：`backend/data/eval/agent_case.json`（结构化全量），生成时间 2026-09-23 17:21。
