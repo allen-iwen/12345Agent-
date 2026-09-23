@@ -459,8 +459,24 @@ def build(d: dict) -> Document:
     ):
         picture(doc, SHOTS / name, cap)
 
-    # ---------- 七、可复核性 ----------
-    h1(doc, "七、可复核性与边界")
+    # ---------- 七、桌面实操截图 ----------
+    h1(doc, "七、桌面实操截图")
+    para(doc, "下面这张是 AI 工具在桌面上的真实运行窗口，可直接看到本次项目的会话、"
+              "工具调用卡片、所用模型与权限模式。截图由 scripts/capture_desktop_shots.ps1 取得："
+              "用 Win32 PrintWindow 让目标窗口渲染自身，不切换前台焦点，"
+              "因此不会打断正在进行的会话，也不会把桌面上其它窗口拍进来。")
+    picture(doc, SHOTS / "desktop_01_DeepSeekHarness.png",
+            "图 5　桌面上的 Coding Agent 工具窗口：左侧为工作区列表（本项目 12345工单热线），"
+            "中间为该项目的会话与工具调用记录，底部为模型、权限模式与运行计数。",
+            max_height_cm=17.5)
+    para(doc, "取证取舍说明：脚本按窗口标题匹配抓图，本次桌面上另有 PowerShell 与 VS Code 窗口，"
+              "但它们打开的是其它项目（与本提交无关），为避免混入无关信息、也避免泄露其它项目内容，"
+              "这两张已排除，只保留与本项目直接相关的窗口。窗口内图像不做文字提取，"
+              "因此本节的密钥检查以人工目视确认为准（已确认无密钥）。",
+         size=9.5, color=MUTED)
+
+    # ---------- 八、可复核性 ----------
+    h1(doc, "八、可复核性与边界")
     para(doc, "为便于核验，本材料的每个数字都对应仓库内的脚本与数据文件：", size=10)
     make_table(
         doc,
@@ -470,6 +486,7 @@ def build(d: dict) -> Document:
             ["本文 PDF", "backend/scripts/make_case_pdf.py（docx 组稿 → Word 导出 → 文本层回验）"],
             ["完整过程记录", "docs/competition/10_实操案例_CodingAgent过程记录.md"],
             ["界面截图", "backend/scripts/capture_case_shots.py → docs/competition/shots/"],
+            ["桌面截图", "backend/scripts/capture_desktop_shots.ps1 → docs/competition/shots/desktop_*.png"],
             ["全量验证", "backend/scripts/verify_all.py"],
         ],
         [3.4, 12.9],
@@ -482,6 +499,9 @@ def build(d: dict) -> Document:
     bullet(doc, "指标评测样本为自建集合（分类 18 例、隐患 12 例、合规 20 例），"
                 "不是公开留出集，相关阈值在样本内拟合，数字偏乐观；"
                 "这一点在 09_决策模型评测 中有专门说明。")
+    bullet(doc, "桌面截图由本机窗口抓取得到，证明的是「该工具在本机桌面上被实际使用」，"
+                "属于过程性证据，不等同于身份认证；如需更强的归属证据，"
+                "可补充会话记录的原始文件与哈希。")
 
     return doc
 
