@@ -4,16 +4,26 @@
   "type_accuracy": 0.9375,
   "severity_accuracy": 0.6875,
   "hazard_agreement": 1.0,
-  "avg_latency_ms": 4778.3,
+  "avg_latency_ms": 4887.7,
   "mismatches": [
+    {
+      "file": "pothole_road_01.jpg",
+      "expected_type": "道路破损",
+      "predicted_type": "道路破损",
+      "expected_severity": "一般",
+      "predicted_severity": "紧急",
+      "confidence": 0.92,
+      "summary": "城市道路车行道上出现大面积沥青破损塌陷，形成明显坑洞和积水带，已露出下方基层，存在于车道行驶区域影响车辆通行安全。",
+      "note": "沥青路面坑洼破损，车辆通行颠簸，暂无即时人身危险"
+    },
     {
       "file": "pothole_road_02.jpg",
       "expected_type": "道路破损",
       "predicted_type": "道路破损",
       "expected_severity": "一般",
       "predicted_severity": "紧急",
-      "confidence": 0.82,
-      "summary": "土质路面坑洼积水，多处坑洞影响车辆与行人通行，路侧散落少量垃圾。",
+      "confidence": 0.88,
+      "summary": "可见土质道路大面积坑洼不平、积水成洼，多处破损坑洞影响车辆与行人通行",
       "note": "土石路面遍布坑洼与积水，车辆通行困难"
     },
     {
@@ -22,9 +32,19 @@
       "predicted_type": "消防通道堵塞",
       "expected_severity": "紧急",
       "predicted_severity": "特急",
-      "confidence": 0.95,
-      "summary": "楼道出入口被大量成袋垃圾及纸箱完全堵死，疏散通道已无法通行",
+      "confidence": 0.82,
+      "summary": "室内空间入口处堆积大量装满垃圾的塑料编织袋与纸箱，堆放至接近门洞顶部，疑似占用或完全堵塞消防/疏散通道。",
       "note": "小区垃圾收集点垃圾外溢堆积，环境卫生问题突出"
+    },
+    {
+      "file": "garbage_dump_03.jpg",
+      "expected_type": "垃圾堆积",
+      "predicted_type": "垃圾堆积",
+      "expected_severity": "紧急",
+      "predicted_severity": "一般",
+      "confidence": 0.92,
+      "summary": "围栏前堆积大量黑色垃圾袋，虽张贴「NO DUMPING」禁倒标识，仍有明显擅自倾倒行为，属于零星成袋垃圾集中堆放但未完全阻断通行。",
+      "note": "禁止倾倒标识旁堆放大量垃圾袋，涉嫌非法倾倒"
     },
     {
       "file": "vendor_sidewalk_01.jpg",
@@ -32,29 +52,9 @@
       "predicted_type": "占道经营",
       "expected_severity": "紧急",
       "predicted_severity": "一般",
-      "confidence": 0.72,
-      "summary": "店铺将餐饮摊位（含饮料站和餐车）延伸至店外人行道上摆放，但人行道仍可通行，未见严重堵塞或安全隐患。",
+      "confidence": 0.82,
+      "summary": "人行步道上摆放多个小吃摊位（魔王狂暴鸡排、橘色泰式奶茶等），遮阳棚外伸出步道上方，属于占道经营行为，但未完全阻断通行。",
       "note": "流动餐车长期占据人行道，行人被迫绕行机动车道"
-    },
-    {
-      "file": "fire_lane_blocked_01.jpg",
-      "expected_type": "消防通道堵塞",
-      "predicted_type": "消防通道堵塞",
-      "expected_severity": "特急",
-      "predicted_severity": "紧急",
-      "confidence": 0.9,
-      "summary": "便利店内通往安全出口的疏散门上方的疏散指示灯亮起绿色「出口」标识，门前方堆放了大量整箱商品及购物推车等杂物，严重阻挡疏散通道。",
-      "note": "超市疏散出口（安全出口）被货物托盘、手推车与梯子完全堵塞，火灾时无法疏散"
-    },
-    {
-      "file": "fallen_wire_02.jpg",
-      "expected_type": "电线坠落",
-      "predicted_type": "电线坠落",
-      "expected_severity": "特急",
-      "predicted_severity": "紧急",
-      "confidence": 0.9,
-      "summary": "路边电杆明显倾斜，杆上多条线缆低垂松垮，其中一条电缆垂落至接近地面并被树杈牵拉，存在坠落触电风险。",
-      "note": "电线杆严重倾斜、线缆被拉紧并低垂至人行道上方，高度不足且随时可能坠落，触电风险高"
     }
   ]
 }
